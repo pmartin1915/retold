@@ -37,12 +37,12 @@ jobs:
 
       - name: Select Xcode
         run: |
-          XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
-          if [ -z "$XCODE_PATH" ]; then echo "No Xcode found"; exit 1; fi
-          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
-          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
-          echo "Using: $XCODE_PATH"
-          xcodebuild -version
+          # Newest RELEASE Xcode, never a beta that happens to sort higher (see select-xcode.sh).
+          source .github/scripts/select-xcode.sh
+          sudo xcode-select -s "$RELEASE_XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$RELEASE_XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Using: $RELEASE_XCODE"
+          DEVELOPER_DIR="$RELEASE_XCODE/Contents/Developer" xcodebuild -version
 
       - name: Install XcodeGen
         run: |
@@ -170,6 +170,14 @@ jobs:
             echo "Export discarded the build number override; refusing to upload."
             exit 1
           fi
+          # The toolchain that built what ships, read from the shipped artifact.
+          DT_XCODE_BUILD=$(/usr/libexec/PlistBuddy -c "Print :DTXcodeBuild" "$IPA_PLIST")
+          DT_SDK_BUILD=$(/usr/libexec/PlistBuddy -c "Print :DTSDKBuild" "$IPA_PLIST")
+          echo "Shipped DTXcodeBuild: $DT_XCODE_BUILD, DTSDKBuild: $DT_SDK_BUILD"
+          ALLOW="${ASC_REVIEW_XCODE_BUILDS:-27A266a}"
+          case " $ALLOW " in *" $DT_XCODE_BUILD "*) ;; *)
+            echo "::warning::.ipa built by Xcode $DT_XCODE_BUILD, not an App-Review-allowlisted build ($ALLOW); fine for TestFlight, not for submission." ;;
+          esac
           echo "IPA_FILE=$IPA_FILE" >> "$GITHUB_ENV"
 
       - name: Upload .ipa as artifact

@@ -3,6 +3,8 @@ name: Build & Test
 on:
   push:
     branches: [main]
+    # Docs/state commits don't compile anything; each skipped run saves ~50 billed minutes.
+    paths-ignore: ['docs/**', 'ai/**', '**/*.md']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -28,12 +30,12 @@ jobs:
       # cannot disagree with itself about which toolchain it means.
       - name: Select Xcode
         run: |
-          XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
-          if [ -z "$XCODE_PATH" ]; then echo "No Xcode found"; exit 1; fi
-          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
-          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
-          echo "Using: $XCODE_PATH"
-          xcodebuild -version
+          # Newest RELEASE Xcode, never a beta that happens to sort higher (see select-xcode.sh).
+          source .github/scripts/select-xcode.sh
+          sudo xcode-select -s "$RELEASE_XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$RELEASE_XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Using: $RELEASE_XCODE"
+          DEVELOPER_DIR="$RELEASE_XCODE/Contents/Developer" xcodebuild -version
           swift --version
 
       - name: Install XcodeGen
@@ -57,6 +59,19 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17' \
             -configuration Debug \
             -resultBundlePath "$RUNNER_TEMP/test.xcresult" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      # Debug-only CI can't see Release-only breakage (e.g. a non-DEBUG caller of a
+      # #if DEBUG test double). Unsigned Release compile with the allowlisted Xcode.
+      - name: Release compile (unsigned, device SDK)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Retold.xcodeproj \
+            -scheme Retold \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
             | xcbeautify
 

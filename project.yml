@@ -33,6 +33,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.pmartin1915.retold
         PRODUCT_NAME: Retold
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # iPhone only. XcodeGen's iOS preset is "1,2" (universal), which would make iPad
+        # screenshots mandatory in ASC and ship an iPad layout nothing has tested.
+        TARGETED_DEVICE_FAMILY: "1"
       configs:
         Release:
           CODE_SIGN_STYLE: Manual
