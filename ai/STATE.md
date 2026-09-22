@@ -56,13 +56,14 @@ the governing design, only the start date moved.
   ENABLE_TESTABILITY, SWIFT_ACTIVE_COMPILATION_CONDITIONS, the real `xcode-27` runner
   label) were baked in from the start instead of rediscovered. `PlaceholderTests` ran: 1
   test, 0 failures.
+- [x] **S0 (cross-app strategy) landed 2026-09-22** (`b650c1b` + fix-forward `31a837a`): App-Review-allowlisted Xcode selection (`.github/scripts/select-xcode.sh`, same file as StoryCue's), unsigned Release compile, docs-only pushes skip Build & Test, `TARGETED_DEVICE_FAMILY: "1"`, deploy reports the `.ipa`'s `DTXcodeBuild`. **CI green, run `35775513678`** on `Xcode_27_Release_Candidate.app` (27A266a). Allowlist trap: see StoryCue `ai/STATE.md` Open Loops -- a red "Select Xcode" after the image ships a GA Xcode means add its build to the allowlist, not a code bug.
 
 ## What's Next
 **Governing order: `../storycue/docs/STRATEGY-2026-09-22.md`** (both apps). Parallel with
 StoryCue as Perry decided, but on lanes that don't compete with StoryCue's fixed 10-16 submit:
 the CI-provable pure logic first, the device-gated recorder after 10-16. PLAN.md's content
 still governs; only the order moved.
-- [ ] R1 Data model (PLAN §6.1) -- `Provenance`, `Confirmable<T>`, SwiftData entities, invariant tests
+- [ ] R1 Data model (PLAN §6.1) -- **spec not written yet; next session**; starts with the SwiftData schema spike (Sol) -- `Provenance`, `Confirmable<T>`, SwiftData entities, invariant tests
 - [ ] R2 Span verifier + windowed merge + template assembly (§6.2-6.3), `FilingModel` mock, synthetic implant fixtures
 - [ ] R3 Leading-question lint (§7) + wellness copy lint (§5.2) in CI
 - [ ] R4 Question engine ordering + nudge selection (§7)
@@ -86,4 +87,4 @@ still governs; only the order moved.
 ## Git state
 - Branch: main, remote https://github.com/pmartin1915/retold.git (private). `3475634`
   (seed docs + scaffold), `e6d89b8` (scaffold review fixes) -- CI green on `e6d89b8`
-  (run 35758163727).
+  (run 35758163727). 2026-09-22 strategy session: `b650c1b`, `35ed092`, `31a837a` -- CI green (run 35775513678).
