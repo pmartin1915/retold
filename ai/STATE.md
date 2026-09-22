@@ -58,18 +58,22 @@ the governing design, only the start date moved.
   test, 0 failures.
 
 ## What's Next
-- [ ] Week 1 (docs/PLAN.md section 6-7, running concurrently with StoryCue per Perry's
-  2026-09-22 override of the original StoryCue-first ordering): recorder + live
-  transcript (`SpeechAnalyzer`), save-first file writing, Action button intent, data
-  model, question engine.
+**Governing order: `../storycue/docs/STRATEGY-2026-09-22.md`** (both apps). Parallel with
+StoryCue as Perry decided, but on lanes that don't compete with StoryCue's fixed 10-16 submit:
+the CI-provable pure logic first, the device-gated recorder after 10-16. PLAN.md's content
+still governs; only the order moved.
+- [ ] R1 Data model (PLAN §6.1) -- `Provenance`, `Confirmable<T>`, SwiftData entities, invariant tests
+- [ ] R2 Span verifier + windowed merge + template assembly (§6.2-6.3), `FilingModel` mock, synthetic implant fixtures
+- [ ] R3 Leading-question lint (§7) + wellness copy lint (§5.2) in CI
+- [ ] R4 Question engine ordering + nudge selection (§7)
+- [ ] R5 `DeckFilingModel` + export manifest (§8)
+- [ ] R6 Recorder + SpeechAnalyzer + Action-button Control + sidecar journal -- **after 10-16**, needs App ID/profile and the 16 Pro
 - [ ] Operator acts, still Perry-only (`docs/PLAN.md` section 11 item 4): Apple Developer
   Portal App ID, App Store provisioning profile, ASC record, GitHub secrets. `build.yml`
   does not need these (`CODE_SIGNING_REQUIRED=NO`); only `deploy.yml` does, and nothing
   triggers `deploy.yml` by accident (`workflow_dispatch`/tag-push only).
 - [ ] Prompt D (Apple stack) re-run solo, Personal Intelligence (Labs) toggle off (Perry
   flips it) -- `docs/PLAN.md` section 12 note.
-- [ ] Week 1 (docs/PLAN.md section 6-7): recorder + live transcript (`SpeechAnalyzer`),
-  save-first file writing, Action button intent, data model, question engine.
 
 ## Open Loops
 - Prompt D never landed (3 failed runs, Labs-toggle leak suspected cause) -- science
