@@ -63,7 +63,7 @@ the governing design, only the start date moved.
 StoryCue as Perry decided, but on lanes that don't compete with StoryCue's fixed 10-16 submit:
 the CI-provable pure logic first, the device-gated recorder after 10-16. PLAN.md's content
 still governs; only the order moved.
-- [ ] R1 Data model (PLAN §6.1) -- **spec not written yet; next session**; starts with the SwiftData schema spike (Sol) -- `Provenance`, `Confirmable<T>`, SwiftData entities, invariant tests
+- [ ] R1 Data model (PLAN §6.1) -- **spec written and Kimi-reviewed, NOT dispatched: `docs/R1-DATAMODEL-SPEC.md`** (`84f1f6e`; 32 findings adjudicated in `docs/reviews/R1-SPEC-REVIEW-2026-09-22.md`; Sol's review failed on a ChatGPT Plus usage limit, so Sol audits the diff instead). Held on 2026-09-22 because the machine was low enough on memory that Claude Code reaped background shells mid-run, and Retold doesn't pre-empt StoryCue's S1 audit. The spec is the spike: `testDetailStoredProvenanceSurvivesReopen` passing while `testConfirmableIntSurvivesReopen` fails = genericity; the pre-registered fallback is concrete `ConfirmableInt`/`ConfirmableString`, applied by a follow-up spec. Dispatch: slim wrapper in `.orchestrate/spec.md` pointing at the committed doc, `kimi-exec.sh --implement --timeout 3600`, then a draft PR (CI runs only on PRs to main).
 - [ ] R2 Span verifier + windowed merge + template assembly (§6.2-6.3), `FilingModel` mock, synthetic implant fixtures
 - [ ] R3 Leading-question lint (§7) + wellness copy lint (§5.2) in CI
 - [ ] R4 Question engine ordering + nudge selection (§7)
