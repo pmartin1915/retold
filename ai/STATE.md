@@ -42,17 +42,26 @@ the governing design, only the start date moved.
   `UIBackgroundModes: audio` per plan section 4 item 2, a placeholder app
   (`RetoldApp.swift`) and placeholder test proving the test target builds and links
   against the app before any real code exists.
+- [x] **Kimi pre-commit scaffold review 2026-09-22** (`docs/reviews/SCAFFOLD-REVIEW-2026-09-22.md`,
+  223s, return_code 0, 16 tool calls, cross-checked against the StoryCue sibling). No
+  blocking findings; three Low-severity fixes applied (pinned XcodeGen to 2.46.0, typed
+  `workflow_dispatch` input comparison, test-target version variables).
+- [x] **GitHub repo created and pushed 2026-09-22**: `github.com/pmartin1915/retold`
+  (private). Registry row added on dev-ops `master` (`bac1427`, via an isolated worktree
+  so the other sessions active on dev-ops's feature branch weren't disturbed).
+- [x] **Week-0 gate MET 2026-09-22, first push, no fix-forward rounds needed**
+  (run `35758163727`, conclusion success, 5m1s). Unlike StoryCue's own week-0 (3 small
+  fix-forward commits needed after first push), this scaffold went green immediately --
+  the lessons StoryCue's history already taught (TEST_HOST/BUNDLE_LOADER,
+  ENABLE_TESTABILITY, SWIFT_ACTIVE_COMPILATION_CONDITIONS, the real `xcode-27` runner
+  label) were baked in from the start instead of rediscovered. `PlaceholderTests` ran: 1
+  test, 0 failures.
 
 ## What's Next
-- [ ] Kimi pre-commit review of the scaffold (same step StoryCue took before its first
-  push -- `docs/reviews/SCAFFOLD-REVIEW-2026-09-21.md` in the storycue repo is the
-  precedent to follow).
-- [ ] Create the private GitHub repo `pmartin1915/retold`, push, confirm `build.yml` goes
-  green on an empty XcodeGen app (StoryCue's own week-0 gate needed 3 small fix-forward
-  commits after first real push -- runner-label, PRODUCT_NAME collision,
-  ENABLE_TESTABILITY -- budget the same here).
-- [ ] Add the repo to dev-ops `config/portfolio-registry.json` once it exists on disk
-  (PORTFOLIO.md rule) -- do this only after the push, per section 11 item 3.
+- [ ] Week 1 (docs/PLAN.md section 6-7, running concurrently with StoryCue per Perry's
+  2026-09-22 override of the original StoryCue-first ordering): recorder + live
+  transcript (`SpeechAnalyzer`), save-first file writing, Action button intent, data
+  model, question engine.
 - [ ] Operator acts, still Perry-only (`docs/PLAN.md` section 11 item 4): Apple Developer
   Portal App ID, App Store provisioning profile, ASC record, GitHub secrets. `build.yml`
   does not need these (`CODE_SIGNING_REQUIRED=NO`); only `deploy.yml` does, and nothing
@@ -71,4 +80,6 @@ the governing design, only the start date moved.
   until Perry does the operator acts above.
 
 ## Git state
-- Branch: main (local only until the remote exists -- this session creates it next).
+- Branch: main, remote https://github.com/pmartin1915/retold.git (private). `3475634`
+  (seed docs + scaffold), `e6d89b8` (scaffold review fixes) -- CI green on `e6d89b8`
+  (run 35758163727).
