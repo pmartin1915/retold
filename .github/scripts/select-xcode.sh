@@ -7,8 +7,9 @@
 # deploy -- a beta on some runs. Beta Xcodes may upload to TestFlight but NOT to App Review.
 #
 # Fails closed: the baseline/deploy Xcode must be one whose build is on the allowlist below.
-# Update ASC_REVIEW_XCODE_BUILDS only after Apple's App Store Connect release notes approve
-# another toolchain for App Store submission (space-separated build numbers).
+# Maintenance: when this step fails closed, compare the printed Xcode table with Apple's App
+# Store Connect release notes. A GA (non-beta) Xcode 27.x is approved by definition -- add its
+# build number here (space-separated). Betas never go on this list.
 #
 # Emits (to this shell when sourced, and to $GITHUB_ENV):
 #   RELEASE_XCODE  allowlisted Xcode (newest version among allowlisted builds)
@@ -71,6 +72,7 @@ DUO_XCODE="$(
 
 if [ -n "${GITHUB_ENV:-}" ]; then
   {
+    echo "ASC_REVIEW_XCODE_BUILDS=$ASC_REVIEW_XCODE_BUILDS"   # single source: deploy's .ipa check reads this
     echo "RELEASE_XCODE=$RELEASE_XCODE"
     echo "DUO_XCODE=$DUO_XCODE"
   } >> "$GITHUB_ENV"
