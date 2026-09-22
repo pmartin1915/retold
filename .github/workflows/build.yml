@@ -38,7 +38,7 @@ jobs:
 
       - name: Install XcodeGen
         run: |
-          curl -sL https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip -o /tmp/xcodegen.zip
+          curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o /tmp/xcodegen.zip
           unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
           XCODEGEN_BIN=$(find /tmp/xcodegen -name "xcodegen" -type f | head -1)
           sudo cp "$XCODEGEN_BIN" /usr/local/bin/xcodegen
