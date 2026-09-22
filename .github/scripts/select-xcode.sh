@@ -20,7 +20,7 @@ ASC_REVIEW_XCODE_BUILDS="${ASC_REVIEW_XCODE_BUILDS:-27A266a}"
 ROWS="$(
   for link in /Applications/Xcode*.app; do
     [ -e "$link" ] || continue
-    /usr/bin/realpath "$link"
+    (cd -P "$link" && pwd -P)   # resolves Xcode.app-style symlinks; no realpath on the runner
   done | LC_ALL=C sort -u |
   while IFS= read -r app; do
     dev="$app/Contents/Developer"
