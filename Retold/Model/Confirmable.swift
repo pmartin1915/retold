@@ -189,3 +189,11 @@ struct Confirmable<T: Codable & Hashable & Sendable>: Codable, Hashable, Sendabl
         self.init(value: value, status: status, stored: stored)
     }
 }
+
+extension Confirmable where T == String {
+    /// A quote proposal whose value IS the span's text, so the value can't drift from what was
+    /// said. Callers proposing transcript text use this, not the generic factory.
+    static func proposedQuote(span: VerifiedSpan) -> Confirmable {
+        proposedQuote(span.text, span: span)
+    }
+}

@@ -9,7 +9,7 @@ final class EntityRuleTests: XCTestCase {
     }
 
     func testAnswerWhenYearIsUserTypedAndAnswersQuestion() {
-        let episode = Episode(title: Confirmable.userTyped("The lake trip"))
+        let episode = Episode(typedTitle: "The lake trip")
         let question = makeQuestion("Roughly when was this?")
         episode.setWhenQuestion(question)
 
@@ -23,7 +23,7 @@ final class EntityRuleTests: XCTestCase {
     }
 
     func testAnswerWhenWithoutQuestionStillSetsValue() {
-        let episode = Episode(title: Confirmable.userTyped("Unfiled"))
+        let episode = Episode(typedTitle: "Unfiled")
         episode.answerWhen(age: 7)
 
         let age = episode.approxAge
@@ -34,7 +34,7 @@ final class EntityRuleTests: XCTestCase {
     }
 
     func testWhenQuestionPicksByID() {
-        let episode = Episode(title: Confirmable.userTyped("Trip"))
+        let episode = Episode(typedTitle: "Trip")
         let first = makeQuestion("first")
         let second = makeQuestion("second")
         let third = makeQuestion("third", origin: .user)
@@ -61,12 +61,12 @@ final class EntityRuleTests: XCTestCase {
             TranscriptSegment(text: words[15..<30].joined(separator: " "), start: 5, end: 10, isFinal: true),
             TranscriptSegment(text: words[30..<40].joined(separator: " "), start: 10, end: 14, isFinal: false),
         ]
-        let episode = Episode(title: Confirmable.userTyped("E"))
+        let episode = Episode(typedTitle: "E")
         episode.setExcerpt(from: segments)
         XCTAssertEqual(episode.excerpt, words[0..<25].joined(separator: " "))
 
         let short = [TranscriptSegment(text: words[0..<10].joined(separator: " "), start: 0, end: 4, isFinal: true)]
-        let shortEpisode = Episode(title: Confirmable.userTyped("S"))
+        let shortEpisode = Episode(typedTitle: "S")
         shortEpisode.setExcerpt(from: short)
         XCTAssertEqual(shortEpisode.excerpt, words[0..<10].joined(separator: " "))
     }
@@ -172,5 +172,32 @@ final class EntityRuleTests: XCTestCase {
         XCTAssertEqual(capture.rejectedProposals[1].kind, .place)
         XCTAssertEqual(capture.rejectedProposals[1].text, "the dock")
         XCTAssertEqual(capture.rejectedProposals[1].rejectedAt.timeIntervalSince1970, second.timeIntervalSince1970, accuracy: 0.001)
+    }
+
+    /// Rule 1 (PLAN 5.1 item 5), added after Sol's R1 audit: an episode title is a verified
+    /// quote (value == the span's text) or typed by the user; no initializer takes model text.
+    func testEpisodeTitleIsQuoteOrTyped() {
+        let span = VerifiedSpan(text: "the summer before eighth grade", captureID: UUID(), start: 3, end: 5.5)
+        let quoted = Episode(titleQuote: span)
+        XCTAssertEqual(quoted.title.value, span.text)
+        XCTAssertEqual(quoted.title.status, .proposed)
+        XCTAssertEqual(quoted.title.provenance, .transcriptQuote(captureID: span.captureID, start: 3, end: 5.5))
+
+        XCTAssertTrue(quoted.confirmTitle())
+        XCTAssertEqual(quoted.title.status, .confirmed)
+        XCTAssertEqual(quoted.title.provenance, .transcriptQuote(captureID: span.captureID, start: 3, end: 5.5))
+
+        quoted.retitle(byUser: "Eighth grade summer")
+        XCTAssertEqual(quoted.title.value, "Eighth grade summer")
+        XCTAssertEqual(quoted.title.provenance, .userTyped)
+
+        let rejected = Episode(titleQuote: span)
+        XCTAssertTrue(rejected.rejectTitle())
+        XCTAssertEqual(rejected.title.status, .rejected)
+
+        let typed = Episode(typedTitle: "Mine")
+        XCTAssertEqual(typed.title.status, .confirmed)
+        XCTAssertEqual(typed.title.provenance, .userTyped)
+        XCTAssertFalse(typed.confirmTitle(), "a typed title isn't a proposal")
     }
 }

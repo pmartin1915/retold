@@ -9,23 +9,22 @@ import XCTest
 @MainActor
 final class SchemaRoundTripTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
+    /// The all-entities fixture's title: a verified quote, never model text (Rule 1).
+    private let titleSpan = VerifiedSpan(
+        text: "The last day of camp",
+        captureID: UUID(uuidString: "00000000-0000-0000-0000-00000000C0DE") ?? UUID(),
+        start: 2,
+        end: 4
+    )
 
-    private var tempDirectory: URL!
-
-    override func setUp() {
-        super.setUp()
-        tempDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-    }
-
-    override func tearDown() {
-        try? FileManager.default.removeItem(at: tempDirectory)
-        tempDirectory = nil
-        super.tearDown()
-    }
-
+    // No setUp/tearDown overrides: a @MainActor test class can't override XCTest's
+    // nonisolated synchronous ones in Swift 6. Each test gets its own directory here, and a
+    // teardown block (URL is Sendable) removes it.
     private func storeURL() -> URL {
-        tempDirectory.appendingPathComponent("r1.store")
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        return directory.appendingPathComponent("r1.store")
     }
 
     // MARK: - Fixtures
@@ -77,7 +76,7 @@ final class SchemaRoundTripTests: XCTestCase {
         let place = Place(name: "Lakeview dock")
         context.insert(place)
 
-        let episode = Episode(title: Confirmable.proposedByModel("The last day of camp"), createdAt: fixedDate)
+        let episode = Episode(titleQuote: titleSpan, createdAt: fixedDate)
         episode.people.append(person1)
         episode.people.append(person2)
         episode.place = place
@@ -228,7 +227,7 @@ final class SchemaRoundTripTests: XCTestCase {
 
         let episode = try fetchEpisode(id: ids.episodeID, in: context)
         assertConfirmableEqual(
-            episode.title, Confirmable.proposedByModel("The last day of camp"), "episode.title",
+            episode.title, Confirmable.proposedQuote(span: titleSpan), "episode.title",
             file: file, line: line
         )
         XCTAssertEqual(episode.whenQuestionID, ids.whenQuestionID, file: file, line: line)
@@ -503,11 +502,10 @@ extension SchemaRoundTripTests {
         let context = container.mainContext
         let span = VerifiedSpan(text: "The last day", captureID: UUID(), start: 0, end: 1.5)
 
-        let proposed = Episode(title: Confirmable.proposedQuote("The last day", span: span))
-        var confirmedTitle = Confirmable<String>.proposedQuote("The last day", span: span)
-        XCTAssertTrue(confirmedTitle.confirm())
-        let confirmed = Episode(title: confirmedTitle)
-        let typed = Episode(title: Confirmable.userTyped("User's own title"))
+        let proposed = Episode(titleQuote: span)
+        let confirmed = Episode(titleQuote: span)
+        XCTAssertTrue(confirmed.confirmTitle())
+        let typed = Episode(typedTitle: "User's own title")
 
         for episode in [proposed, confirmed, typed] {
             context.insert(episode)
@@ -625,8 +623,8 @@ extension SchemaRoundTripTests {
 
         let person1 = Person(name: "Dan")
         let person2 = Person(name: "Ruth")
-        let episode1 = Episode(title: Confirmable.userTyped("One"))
-        let episode2 = Episode(title: Confirmable.userTyped("Two"))
+        let episode1 = Episode(typedTitle: "One")
+        let episode2 = Episode(typedTitle: "Two")
 
         // Owning side: Episode.people.
         episode1.people.append(person1)
@@ -634,9 +632,12 @@ extension SchemaRoundTripTests {
         episode2.people.append(person1)
         episode2.people.append(person2)
 
-        for object in [person1, person2, episode1, episode2] {
-            context.insert(object)
-        }
+        // One insert per object: a mixed [Person, Episode] literal infers [Any], which
+        // ModelContext.insert can't take.
+        context.insert(person1)
+        context.insert(person2)
+        context.insert(episode1)
+        context.insert(episode2)
         try context.save()
         return SeededManyToMany(
             episode1ID: episode1.id,
@@ -669,7 +670,7 @@ extension SchemaRoundTripTests {
         let context = container.mainContext
 
         let period = Period(title: "Camp", sortOrder: 1)
-        let episode = Episode(title: Confirmable.userTyped("E"))
+        let episode = Episode(typedTitle: "E")
         context.insert(period)
         context.insert(episode)
         period.episodes.append(episode)

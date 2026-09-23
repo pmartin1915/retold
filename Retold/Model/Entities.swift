@@ -28,7 +28,9 @@ import SwiftData
 
 @Model final class Episode {
     var id: UUID
-    var title: Confirmable<String>
+    /// Rule 1 (PLAN 5.1 item 5): a title is a verified transcript span or typed by the user --
+    /// never model text. The two initializers and three mutators below are its only writers.
+    private(set) var title: Confirmable<String>
     var period: Period?
     private(set) var whenQuestionID: UUID?              // one of `questions`; question lives in `questions`
     private(set) var approxYear: Confirmable<Int>?
@@ -41,12 +43,28 @@ import SwiftData
     private(set) var excerpt: String                    // verbatim first words of a transcript; "" until set
     var createdAt: Date
 
-    init(title: Confirmable<String>, createdAt: Date = Date()) {
+    /// Title proposed from a verified transcript span; its value is exactly `span.text`.
+    init(titleQuote span: VerifiedSpan, createdAt: Date = Date()) {
         id = UUID()
-        self.title = title
+        title = Confirmable.proposedQuote(span: span)
         excerpt = ""
         self.createdAt = createdAt
     }
+
+    /// Title typed by the user.
+    init(typedTitle: String, createdAt: Date = Date()) {
+        id = UUID()
+        title = Confirmable.userTyped(typedTitle)
+        excerpt = ""
+        self.createdAt = createdAt
+    }
+
+    /// The user taps the proposed title chip. False if it wasn't proposed.
+    @discardableResult func confirmTitle() -> Bool { title.confirm() }
+    /// The user declines the proposed title chip. False if it wasn't proposed.
+    @discardableResult func rejectTitle() -> Bool { title.reject() }
+    /// The user types their own title.
+    func retitle(byUser text: String) { title.replaceByUser(text) }
 
     /// The ONLY writer of excerpt: the first 25 whitespace-separated words of the segments'
     /// texts, joined with single spaces, in order, unaltered (fewer if the transcript is shorter).
@@ -195,13 +213,15 @@ enum CaptureError: Error, Equatable {
     }
 }
 
+// text/templateID/slots/cue/origin are fixed at init: the audited deck assembler (R3/R4) is
+// the only intended constructor, and nothing may relabel or rewrite a question afterwards.
 @Model final class Question {
     var id: UUID
-    var text: String                                    // assembled by Swift from templateID + slots (R3/R4)
-    var templateID: String
-    var slots: [VerifiedSpan] = []
-    var cue: CueKind
-    var origin: Origin                                  // .deck or .user only; init precondition
+    private(set) var text: String                                    // assembled by Swift from templateID + slots (R3/R4)
+    private(set) var templateID: String
+    private(set) var slots: [VerifiedSpan] = []
+    private(set) var cue: CueKind
+    private(set) var origin: Origin                                  // .deck or .user only; init precondition
     var status: QuestionStatus
     var episode: Episode?
     var period: Period?                                 // one-way, no inverse
