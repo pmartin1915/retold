@@ -88,3 +88,9 @@ still governs; only the order moved.
 - Branch: main, remote https://github.com/pmartin1915/retold.git (private). `3475634`
   (seed docs + scaffold), `e6d89b8` (scaffold review fixes) -- CI green on `e6d89b8`
   (run 35758163727). 2026-09-22 strategy session: `b650c1b`, `35ed092`, `31a837a` -- CI green (run 35775513678).
+
+## CI policy (2026-09-23)
+
+- **The repo is PUBLIC as of 2026-09-23**, so GitHub Actions minutes are free, macOS included. Perry ran out of Actions minutes (100%) after about 13 fix-cycle runs; see the storycue handoff of the same date. Current files were scrubbed of personal/entity references first. Git history still has them and was deliberately left alone. No credentials were ever committed. Signing lives in GitHub secrets, and `deploy.yml` is `workflow_dispatch` only, so fork PRs never see secrets.
+- `build.yml` runs on PRs only, not on push to main. A squash-merge re-tested the tree its PR had just passed. **Code reaches main only through a green PR.** Docs/state commits go straight to main, and `workflow_dispatch` runs a manual main check.
+- Batch compile fixes: sweep an executor's diff for Swift 6 test pitfalls before its first CI run, and push each fix round once, never one fix per push.
