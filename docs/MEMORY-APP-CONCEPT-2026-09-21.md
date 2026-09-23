@@ -52,8 +52,8 @@ retrieve, and to ask the next question.
    the model infers (a year, a person's role) is rendered as a **question the user
    confirms**, never as a statement. Follow-up prompts are questions by construction, so
    they are safe; summaries are where the hazard lives.
-2. **Wellness claims have a line, and Perry has already drawn it once.** Martin Apps LLC
-   Decision #47 (Wilderness, 2026-09-06): *the app instructs; it does not measure.* Here:
+2. **Wellness claims have a line, and Perry has already drawn it once.** The standing
+   wellness-claims decision (Wilderness, 2026-09-06): *the app instructs; it does not measure.* Here:
    the app prompts; it does not assess. No memory tests, no scores, no "your recall
    improved 12%", no mention of MCI or dementia in copy, no claim to treat anything.
    "Remember more" and "reflect" plausibly sit inside FDA's general-wellness category;

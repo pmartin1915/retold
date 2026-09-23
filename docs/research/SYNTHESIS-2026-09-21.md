@@ -78,7 +78,7 @@ strengthens, but extraction into a record plus re-exposure to it.
 8. **General-wellness boundary confirmed (C §4).** "Remember more, reflect more" sits inside the
    FDA's general-wellness examples; disease terms take it out. The copy lint's forbidden list is
    extended with *PTSD, depression, ADHD, anxiety, trauma, therapy, treat-, cure-, prevent-,
-   diagnos-*. **Version note:** the report cites the 2016 guidance; Martin Apps LLC's Decision #47
+   diagnos-*. **Version note:** the report cites the 2016 guidance; the private wellness-claims
    memo has the **2026-01-06** revision archived with a SHA-256 — that copy is authoritative for
    copy review, not the report. FTC: Lumosity (2016, $2 M) and LearningRx were penalised for
    disease-prevention claims without trials; no action found against wellness-only journaling

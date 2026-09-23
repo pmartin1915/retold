@@ -31,7 +31,7 @@ one is not. Build order is StoryCue first unless Perry changes it.
 | Name | "Hippo" is a working name; prompt C §6 runs the conflict check. Do not create ids or a repo under it yet |
 | Money | Zero marginal cost by design: no server, no cloud model, no account. A cloud tier is explicitly out of the concept |
 | Rule 1 | **A memory app never authors memories.** Audio + verbatim transcript are the record; every derived field is marked derived; the paraphrase may only restate what is in the transcript; anything inferred (a year, a person's role) renders as a question the user confirms |
-| Rule 2 | **Martin Apps Decision #47 applies: the app prompts, it does not assess.** No memory tests, scores, trends, or MCI/dementia language anywhere, including marketing |
+| Rule 2 | **The standing wellness-claims decision applies: the app prompts, it does not assess.** No memory tests, scores, trends, or MCI/dementia language anywhere, including marketing |
 | Rule 3 | A no-model mode is mandatory (manual tags, static prompt deck per period) for iPhones without Apple Intelligence |
 
 ## This session, in order

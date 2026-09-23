@@ -198,7 +198,7 @@ span can still juxtapose two true quotes into a false relation ("You mentioned {
 lake} — what happened there?"). Rule for the deck: **one slot per template**, or two slots only
 when both spans come from the same transcript segment.
 
-### 5.2 Rule 2 — the app prompts; it does not assess (Martin Apps LLC Decision #47)
+### 5.2 Rule 2 — the app prompts; it does not assess (standing wellness-claims decision)
 
 Decision #47 (**adopted 2026-09-06**) sets the company's posture for Wilderness: *"the app
 instructs; it does not measure."* The same posture here reads: **the app prompts; it does not
@@ -692,7 +692,7 @@ pivot rule, decided now so it is not decided in a panic.
 ## Sources (as of 2026-09-21)
 
 - `MEMORY-APP-CONCEPT-2026-09-21.md`; `HANDOFF-2026-09-21-hippo-kickoff.md`; `IPHONE-DUO-PLAN-2026-09-18.md`
-- Martin Apps LLC `Martin_Apps_LLC_Decisions.md` Decision #47 (adopted 2026-09-06) and `Wilderness_FDA_Posture.md`
+- The developer's standing wellness-claims decision (adopted 2026-09-06) and the Wilderness FDA-posture memo (both private)
 - Apple, WWDC 2025: *Meet the Foundation Models framework* (`SystemLanguageModel`, `LanguageModelSession`, `@Generable`, `@Guide`, availability cases); *Explore prompt design & safety for on-device foundation models* (context limit, guardrails); *Bring advanced speech-to-text to your app with SpeechAnalyzer* (`SpeechTranscriber`, `AssetInventory`, file and stream input, volatile results, audio time ranges). Session recollection; **report D confirms or corrects each.**
 - Apple, WWDC 2024: *Extend your app's controls across the system* (ControlWidget, intents from Lock Screen; `AudioRecordingIntent` recollection to be confirmed)
 - Apple developer documentation: App Intents (`supportedModes`, `OpenIntent`, `AudioRecordingIntent`, `AppShortcutsProvider`; `openAppWhenRun` deprecated in iOS 26 per Sol), Data Protection (`FileProtectionType`), `UIBackgroundModes`; Sol's cited pages are listed in `HIPPO-PLAN-REVIEWS-2026-09-21.md` §2

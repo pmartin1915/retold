@@ -6,7 +6,7 @@
 
 ## Background
 
-I am a solo iOS developer and a nurse. I want to build a personal, offline, no-account
+I am a solo iOS developer. I want to build a personal, offline, no-account
 iPhone app for people in their twenties and thirties who feel that memories from childhood,
 school years, or relationships with no photo record are fading because adult life never
 makes them retrieve those memories. The mechanic: when a memory surfaces, the user presses

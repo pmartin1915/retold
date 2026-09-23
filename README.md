@@ -17,6 +17,6 @@ Bundle id `dev.pmartin1915.retold`. Codename during planning was "Hippo" -- reje
 (USPTO collision, `docs/PLAN.md` section 11). Zero marginal cost by design: no server, no
 cloud model, no account. Three hazard rules govern everything here (`docs/PLAN.md`
 section 5): the app never authors memories (verbatim transcript is the record, everything
-derived is a confirm-before-file question); it prompts, it never assesses (Martin Apps LLC
-Decision #47 -- no memory scores, no MCI/dementia language, anywhere); a no-model mode is
+derived is a confirm-before-file question); it prompts, it never assesses (standing
+wellness-claims decision -- no memory scores, no MCI/dementia language, anywhere); a no-model mode is
 mandatory for iPhones without Apple Intelligence.
