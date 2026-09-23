@@ -1,18 +1,18 @@
 name: Build & Test
 
 on:
-  push:
-    branches: [main]
-    # Docs/state commits don't compile anything; each skipped run saves ~50 billed minutes.
-    paths-ignore: ['docs/**', 'ai/**', '**/*.md']
+  # PRs only. A push to main re-tested the exact tree its PR had just passed (squash merge),
+  # so it was a duplicate run. Code reaches main only through a green PR; docs/state commits
+  # go straight to main and compile nothing. workflow_dispatch covers a manual main check.
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', 'ai/**', '**/*.md']
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# macOS minutes bill at 10x on a private repo; a stacked push cancels the run it superseded.
+# A stacked push cancels the run it superseded (macOS minutes bill at 10x if a repo is private).
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
