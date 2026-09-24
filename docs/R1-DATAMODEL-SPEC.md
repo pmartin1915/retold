@@ -191,7 +191,7 @@ dropping the restriction silently.
 
 @Model final class Episode {
     var id: UUID
-    var title: Confirmable<String>
+    private(set) var title: Confirmable<String>         // quote or user-typed only (amended after Sol's audit)
     var period: Period?
     private(set) var whenQuestionID: UUID?              // one of `questions`; see Departures
     private(set) var approxYear: Confirmable<Int>?
@@ -203,7 +203,11 @@ dropping the restriction silently.
     @Relationship(deleteRule: .cascade, inverse: \Question.episode) var questions: [Question] = []
     private(set) var excerpt: String                    // verbatim first words of a transcript; "" until set
     var createdAt: Date
-    init(title: Confirmable<String>, createdAt: Date = Date())   // excerpt ""
+    init(titleQuote span: VerifiedSpan, createdAt: Date = Date())   // title = .proposedQuote(span:), value == span.text
+    init(typedTitle: String, createdAt: Date = Date())              // title = .userTyped
+    // Amended after Sol's R1 audit: the original `init(title: Confirmable<String>)` accepted
+    // `.proposedByModel`, and confirm() turned that into a confirmed model-authored title --
+    // exactly what PLAN 5.1 item 5 forbids. Mutators: confirmTitle(), rejectTitle(), retitle(byUser:).
 
     /// The ONLY writer of excerpt: the first 25 whitespace-separated words of the segments'
     /// texts joined with single spaces, in order, unaltered (fewer if the transcript is shorter).
