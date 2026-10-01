@@ -70,10 +70,13 @@ enum ExtractMerger {
             }
         }
 
-        merged.people.sort { $0.start < $1.start }
-        merged.places.sort { $0.start < $1.start }
-        merged.timeCues.sort { $0.start < $1.start }
-        merged.referents = referents.sorted { $0.span.start < $1.span.start }
+        func ordered(_ a: VerifiedSpan, _ b: VerifiedSpan) -> Bool {
+            (a.start, a.end, a.text) < (b.start, b.end, b.text)
+        }
+        merged.people.sort(by: ordered)
+        merged.places.sort(by: ordered)
+        merged.timeCues.sort(by: ordered)
+        merged.referents = referents.sorted { ordered($0.span, $1.span) }
         // `periodOrder` is first-vote order, so a strict ">" keeps the earliest title on ties.
         var best: String?
         for title in periodOrder {

@@ -67,7 +67,7 @@ seen. Always terminates, always covers every segment, empty input gives no windo
 
 `ExtractMerger.merge(_ results:[(window:, extract:)], periodTitles:) -> MergedExtract`. Each string is
 verified against **its own window** first. Then: de-duplicate by normalised text per kind (this
-also collapses one quotation seen in two overlapping windows); order by audio start; the period is
+also collapses one quotation seen in two overlapping windows); order by (audio start, end, text) so ties are deterministic; the period is
 the user's own title (spelled as in their list) named by most windows, earliest window breaking
 ties, and a name not in the list counts for nothing; the title span is the first verified one of
 at most 8 words. **No second model call.** `MergedExtract` holds only verified spans and one period
@@ -87,6 +87,11 @@ deck is R3), `TemplateAssembler.assemble(_:slots:segments:) throws -> AssembledQ
 
 `followUps(from:maxFollowUps: 5)`: `broad` first (broad before narrow), then `when` (`whenWithCue`
 if a time cue verified), then up to five more rotating referent → place → person.
+
+Known gap, for R3's lint: a one-word span such as "I" verifies (it is verbatim) and would fill
+`who` as "Who was I to you, back then?". Not a Rule 1 breach; the deck lint decides a stopword guard.
+Also, span text joins words with single spaces, so it is a contiguous piece of the transcript
+modulo whitespace.
 
 ## 7. Pipeline — `Retold/Filing/FilingPipeline.swift`
 
