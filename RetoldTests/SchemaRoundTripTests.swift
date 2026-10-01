@@ -10,7 +10,7 @@ import XCTest
 final class SchemaRoundTripTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
     /// The all-entities fixture's title: a verified quote, never model text (Rule 1).
-    private let titleSpan = VerifiedSpan(
+    private let titleSpan = VerifiedSpan.fixture(
         text: "The last day of camp",
         captureID: UUID(uuidString: "00000000-0000-0000-0000-00000000C0DE") ?? UUID(),
         start: 2,
@@ -91,7 +91,7 @@ final class SchemaRoundTripTests: XCTestCase {
         episode.captures.append(capture)
         episode.setExcerpt(from: transcript)
 
-        let quoteSpan = VerifiedSpan(text: "w3 w4", captureID: capture.id, start: 0.5, end: 1.5)
+        let quoteSpan = VerifiedSpan.fixture(text: "w3 w4", captureID: capture.id, start: 0.5, end: 1.5)
         let detailQuote = Detail(quote: quoteSpan, kind: .sensory)
         let detailTyped = Detail(typed: "It rained that afternoon.", kind: .emotion)
         context.insert(detailQuote)
@@ -293,7 +293,7 @@ final class SchemaRoundTripTests: XCTestCase {
         XCTAssertEqual(followUp.templateID, "deck.referent.v1", file: file, line: line)
         XCTAssertEqual(
             followUp.slots,
-            [VerifiedSpan(text: "w3 w4", captureID: ids.captureID, start: 0.5, end: 1.5)],
+            [VerifiedSpan.fixture(text: "w3 w4", captureID: ids.captureID, start: 0.5, end: 1.5)],
             file: file, line: line
         )
         XCTAssertEqual(followUp.status, .open, file: file, line: line)
@@ -352,7 +352,7 @@ extension SchemaRoundTripTests {
         let container = try RetoldSchema.makeContainer(url: url)
         let context = container.mainContext
         let captureID = UUID()
-        let span = VerifiedSpan(text: "the smell of pine", captureID: captureID, start: 1.25, end: 3.75)
+        let span = VerifiedSpan.fixture(text: "the smell of pine", captureID: captureID, start: 1.25, end: 3.75)
         let quote = Detail(quote: span, kind: .sensory)
         let typed = Detail(typed: "We hiked before breakfast.", kind: .sequence)
         context.insert(quote)
@@ -437,7 +437,7 @@ extension SchemaRoundTripTests {
         let container = try RetoldSchema.makeContainer(url: url)
         let context = container.mainContext
         let captureID = UUID()
-        let span = VerifiedSpan(text: "cue", captureID: captureID, start: 2, end: 4)
+        let span = VerifiedSpan.fixture(text: "cue", captureID: captureID, start: 2, end: 4)
 
         let userTyped = Period(title: "userTyped", sortOrder: 1)
         userTyped.approxStartAge = Confirmable.userTyped(1)
@@ -500,7 +500,7 @@ extension SchemaRoundTripTests {
     private func seedStringEpisodes(url: URL) throws -> SeededStringEpisodes {
         let container = try RetoldSchema.makeContainer(url: url)
         let context = container.mainContext
-        let span = VerifiedSpan(text: "The last day", captureID: UUID(), start: 0, end: 1.5)
+        let span = VerifiedSpan.fixture(text: "The last day", captureID: UUID(), start: 0, end: 1.5)
 
         let proposed = Episode(titleQuote: span)
         let confirmed = Episode(titleQuote: span)
@@ -544,8 +544,8 @@ extension SchemaRoundTripTests {
         XCTAssertEqual(
             question.slots,
             [
-                VerifiedSpan(text: "alpha", captureID: seeded.captureID, start: 0, end: 0.5),
-                VerifiedSpan(text: "gamma", captureID: seeded.captureID, start: 1, end: 2),
+                VerifiedSpan.fixture(text: "alpha", captureID: seeded.captureID, start: 0, end: 0.5),
+                VerifiedSpan.fixture(text: "gamma", captureID: seeded.captureID, start: 1, end: 2),
             ],
             "slots keep order"
         )
@@ -579,8 +579,8 @@ extension SchemaRoundTripTests {
             text: "q",
             templateID: "t",
             slots: [
-                VerifiedSpan(text: "alpha", captureID: capture.id, start: 0, end: 0.5),
-                VerifiedSpan(text: "gamma", captureID: capture.id, start: 1, end: 2),
+                VerifiedSpan.fixture(text: "alpha", captureID: capture.id, start: 0, end: 0.5),
+                VerifiedSpan.fixture(text: "gamma", captureID: capture.id, start: 1, end: 2),
             ],
             cue: .sensory,
             origin: .user

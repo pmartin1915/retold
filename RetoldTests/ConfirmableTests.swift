@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class ConfirmableTests: XCTestCase {
     private func makeSpan() -> VerifiedSpan {
-        VerifiedSpan(text: "the lake", captureID: UUID(), start: 1.5, end: 3.0)
+        VerifiedSpan.fixture(text: "the lake", captureID: UUID(), start: 1.5, end: 3.0)
     }
 
     func testFactoriesSetStatusAndProvenance() {

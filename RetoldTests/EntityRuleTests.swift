@@ -82,7 +82,7 @@ final class EntityRuleTests: XCTestCase {
     }
 
     func testDetailInitializersNeverModel() {
-        let span = VerifiedSpan(text: "the smell of pine", captureID: UUID(), start: 1, end: 2)
+        let span = VerifiedSpan.fixture(text: "the smell of pine", captureID: UUID(), start: 1, end: 2)
         let quote = Detail(quote: span, kind: .sensory)
         XCTAssertEqual(quote.text, "the smell of pine")
         XCTAssertEqual(quote.provenance, StoredProvenance(.transcriptQuote(captureID: span.captureID, start: 1, end: 2)))
@@ -177,7 +177,7 @@ final class EntityRuleTests: XCTestCase {
     /// Rule 1 (PLAN 5.1 item 5), added after Sol's R1 audit: an episode title is a verified
     /// quote (value == the span's text) or typed by the user; no initializer takes model text.
     func testEpisodeTitleIsQuoteOrTyped() {
-        let span = VerifiedSpan(text: "the summer before eighth grade", captureID: UUID(), start: 3, end: 5.5)
+        let span = VerifiedSpan.fixture(text: "the summer before eighth grade", captureID: UUID(), start: 3, end: 5.5)
         let quoted = Episode(titleQuote: span)
         XCTAssertEqual(quoted.title.value, span.text)
         XCTAssertEqual(quoted.title.status, .proposed)

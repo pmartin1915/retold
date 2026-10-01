@@ -11,26 +11,6 @@ enum QuestionStatus: String, Codable, Hashable, Sendable { case open, answered, 
 enum TranscriptionStatus: String, Codable, Hashable, Sendable { case pending, live, fromFile, complete, failed }
 enum ProposalKind: String, Codable, Hashable, Sendable { case title, period, person, place, timeCue, referent }
 
-/// An exact transcript quotation with its audio range. R2's verifier is the only producer in
-/// production; R1 constructs them directly in tests.
-struct VerifiedSpan: Codable, Hashable, Sendable {
-    let text: String
-    let captureID: UUID
-    let start: TimeInterval
-    let end: TimeInterval
-
-    /// Never traps, even on a decoded value whose start > end.
-    var range: ClosedRange<TimeInterval> { min(start, end)...max(start, end) }
-
-    init(text: String, captureID: UUID, start: TimeInterval, end: TimeInterval) {
-        precondition(start <= end)
-        self.text = text
-        self.captureID = captureID
-        self.start = start
-        self.end = end
-    }
-}
-
 struct TranscriptSegment: Codable, Hashable, Sendable {
     var text: String
     var start: TimeInterval
