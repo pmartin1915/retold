@@ -77,7 +77,9 @@ still governs; only the order moved.
   flips it) -- `docs/PLAN.md` section 12 note.
 
 ## Open Loops
-- Prompt D never landed (3 failed runs, Labs-toggle leak suspected cause) -- science
+- **Prompt D LANDED 2026-10-02** (Waterwheel WW-0101, adopted; `docs/research/2026-10-03-retold-apple-stack-platform-facts-prompt-d.md`).
+  NOT YET ADJUDICATED: compare it with Sol's review in SYNTHESIS §D before relying on it. Its PCC 32K
+  figure and App Store minimum-OS row are weakly sourced. Earlier history: prompt D failed 3 times, with the Labs toggle the suspected cause -- science
   findings (prompt C) are adjudicated and load-bearing for the design; the Apple-stack
   platform facts prompt D was meant to confirm are currently sourced from Sol's review
   only (`docs/reviews/PLAN-REVIEW-2026-09-21.md`).
