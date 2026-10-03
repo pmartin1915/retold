@@ -101,7 +101,7 @@ a channel noun is allowed. Nothing else is exempted: a single-channel invitation
 gets no exemption. `sensoryPlace` ("Anything about {slot} itself — the light, the sounds, the
 weather?") and `sensory.everything` pass by this rule and by no other.
 
-`violations` returns every violation in pattern order (a pattern can break several rules). Word lists
+`violations` returns every violation, grouped by sentence then clause (a pattern can break several rules); no consumer may rely on positional order. Word lists
 are `private static let` inside the lint; **tests must not reference them** (see §5).
 
 ## 3. Wellness copy lint — `Retold/Questions/WellnessLint.swift`, `Retold/Copy/AppCopy.swift`
