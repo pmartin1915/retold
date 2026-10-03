@@ -89,4 +89,22 @@ final class TemplateAssemblerTests: XCTestCase {
         XCTAssertEqual(question.templateID, "who.person")
         XCTAssertEqual(question.slots, built.slots)
     }
+
+    func testSlotMadeOnlyOfFunctionWordsThrows() {
+        for text in ["I", "the", "um, you"] {
+            XCTAssertThrowsError(try TemplateAssembler.assemble(FilingTemplates.who, slots: [span(text, 0, 1)])) {
+                XCTAssertEqual($0 as? TemplateAssemblyError, .slotIsFunctionWord)
+            }
+        }
+    }
+
+    func testFollowUpsSkipAFunctionWordPersonButKeepAContentWordOne() {
+        var onlyI = MergedExtract()
+        onlyI.people = [span("I", 0, 1)]
+        XCTAssertFalse(TemplateAssembler.followUps(from: onlyI).contains { $0.templateID == "who.person" })
+
+        var withContent = MergedExtract()
+        withContent.people = [span("my aunt", 0, 1)]
+        XCTAssertTrue(TemplateAssembler.followUps(from: withContent).contains { $0.templateID == "who.person" })
+    }
 }

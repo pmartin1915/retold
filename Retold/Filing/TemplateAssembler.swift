@@ -30,11 +30,17 @@ enum FilingTemplates {
     static let broad = QuestionTemplate(
         id: "broad.open", cue: .event,
         pattern: "Anything else at all, however small?")
+
+    /// The six filing follow-ups, in offer order; QuestionDeck.all starts with these.
+    static let all: [QuestionTemplate] = [broad, when, whenWithCue, who, sensoryPlace, referent]
 }
 
 enum TemplateAssemblyError: Error, Equatable {
     case slotCountMismatch
     case slotsFromDifferentSegments
+    /// Every word of a slot was a function word (e.g. "I"), which would fill a who
+    /// question with nothing to remember (PLAN section 6.2 follow-ups, R3 fix).
+    case slotIsFunctionWord
 }
 
 /// A question built by Swift from a template and verified spans. Not yet a persisted `Question`.
@@ -51,10 +57,22 @@ struct AssembledQuestion: Equatable, Sendable {
 }
 
 enum TemplateAssembler {
+    /// Words that may not fill a slot alone; a span made only of these says nothing
+    /// a question could hang on (R3 function-word guard).
+    private static let functionWords: Set<String> = [
+        "i", "me", "my", "mine", "myself", "you", "your", "yours",
+        "he", "him", "his", "she", "her", "hers", "it", "its",
+        "we", "us", "our", "ours", "they", "them", "their", "theirs",
+        "this", "that", "these", "those", "there", "here",
+        "a", "an", "the", "and", "or", "but", "so", "then", "um", "uh", "like", "just",
+    ]
+
     /// Fills `template` with exactly its number of verified spans. A template has one slot, or two
     /// only when both spans lie inside the same transcript segment (PLAN section 5.1 tail), so two
     /// true quotations from different moments are never juxtaposed. The check needs the
-    /// segments; more than two slots is not allowed at all.
+    /// segments; more than two slots is not allowed at all. A slot whose every word is a
+    /// function word (e.g. "I") is rejected too: it is verbatim, but it fills the who
+    /// question with nothing to remember.
     static func assemble(
         _ template: QuestionTemplate,
         slots: [VerifiedSpan],
@@ -62,6 +80,14 @@ enum TemplateAssembler {
     ) throws -> AssembledQuestion {
         guard slots.count == template.slotCount, template.slotCount <= 2 else {
             throw TemplateAssemblyError.slotCountMismatch
+        }
+        for slot in slots {
+            let keys = slot.text.split(whereSeparator: \.isWhitespace)
+                .map({ SpanVerifier.key(String($0)) })
+                .filter({ !$0.isEmpty })
+            if !keys.isEmpty && keys.allSatisfy({ functionWords.contains($0) }) {
+                throw TemplateAssemblyError.slotIsFunctionWord
+            }
         }
         if slots.count == 2 {
             let sameSegment = segments.contains { segment in
