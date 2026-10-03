@@ -177,3 +177,113 @@ stores are unwritable while locked. Report D is still wanted as the independent 
 on each; where D and Sol disagree, record both here and resolve against the SDK when the first
 Swift is written. Still D-only: guardrail scope, App Review gating wording, CloudKit encryption,
 language coverage and asset sizes, the Apple Intelligence install-base share.
+
+### Report D landed 2026-10-02 — adjudication (2026-10-02, Opus session)
+
+**Source:** `2026-10-03-retold-apple-stack-platform-facts-prompt-d.md` (Waterwheel WW-0101, solo
+re-run, completed 9:27 PM CT; 7 sections, a limits table, a "could not find" list). Adjudicated
+against Sol's review (`docs/reviews/PLAN-REVIEW-2026-09-21.md` §2) by the rule above: where they
+disagree, both are recorded and the SDK decides when the first Swift touches that API.
+
+**Citation quality (D):** weaker than C, and Sol outranks it wherever they conflict. The Apple
+primary pages D cites are `SystemLanguageModel`, `UnavailableReason`, `LanguageModelSession`,
+*Managing the context window*, `Speech`, the JournalingSuggestions picker pages, `PHAsset`,
+*Required Device Capabilities* and the App Review Guidelines. Everything else is blog-grade
+(blakecrosley, azamsharp, Medium, Kodeco, forasoft, Argmax, createwithswift, GitHub issues), and
+two cites are irrelevant: #11 is a Zebra badge-scanner page, #38 a Google patent. Several
+self-rated "High" sections rest only on the blog tier. D's own "could not find" list is honest and
+is carried below.
+
+#### Confirmed — D agrees with Sol (second source now on file)
+
+| Fact | D | Plan effect |
+|---|---|---|
+| 4,096 tokens per session, shared by instructions, prompt, schema and output; context-exceeded error | §1, cites `contextSize` (High) | None. PLAN §6.3 and R2's windowing stand |
+| Three `unavailable` reasons (`deviceNotEligible`, `appleIntelligenceNotEnabled`, `modelNotReady`); availability changes at runtime | §1 (High) | None. §8 copy per reason stands (D's "one-time prompt" wording is not adopted; §8's words are) |
+| Writing while locked needs `.completeUnlessOpen`; `.complete` keys are evicted on lock | §5 (High) | None. Sol S6's sidecar journal stands |
+| No silent locked start: a Control tapped while locked asks for Face ID unless an audio session is already live | §3 (Medium) | None. Sol S4's "foreground, unlocked" door stands |
+| `UIBackgroundModes: audio`; trap `interruptionNotification`, finalise the segment, resume a new one | §3 (High) | None. R6's week-1 gate already measures interruption recovery |
+| Save audio to a file first, transcribe from the file | §2 (High) | None. PLAN §1 row 46 "save-audio-first" stands |
+
+#### Conflicts — D disagrees with Sol
+
+1. **Speech usage string.** Sol S5 (High, Apple docs): `SpeechAnalyzer` modules need no
+   `SFSpeechRecognizer.requestAuthorization`, so `NSSpeechRecognitionUsageDescription` is needed
+   only if `SFSpeechRecognizer` is used. D §2 "Usage Limits" (self-rated High): both strings are
+   required and starting `SpeechTranscriber` fires a consent prompt. D's only cite is #31, a
+   Developer Forums *tag page*. **Not resolved here.** Recorded both ways; R6 settles it on the
+   SDK and the 16 Pro (does a prompt appear; does a missing key crash). PLAN §1 row 48, §4 item 2
+   and §9 now say "conflict recorded, resolve at R6" instead of "mic string only".
+2. **`openAppWhenRun`.** Sol S4 (High): deprecated in iOS 26; use
+   `supportedModes = [.foreground(.immediate)]` or `OpenIntent`. D §3 (Medium): "must declare
+   `openAppWhenRun = true`", cited to the Zebra page. D brings no evidence on the deprecation.
+   **Sol stands**; D neither confirms nor refutes it.
+
+#### Newly answered — were D-only
+
+- **Guardrails** (PLAN §1 row 44). Not configurable (`guardrails: .default`); they fire on
+  "potentially sensitive topics, even if it's not harmful" (D quotes Kodeco quoting Apple), and
+  developer reports name grief, medical episodes and relationship trouble. **Adopt:** a refusal is
+  routine for this app's content, not rare, which is what §8 already designs for (refusal → the
+  capture stays *Unfiled* with the static deck, never an error). D's suggested notification about
+  "system safety filters" is **declined**: it tells the user their memory tripped a filter, which
+  reads as a judgement on the memory. Whether a looser guardrail mode applies to `@Generable`
+  output is not in D; verify at the SDK.
+- **JournalingSuggestions** (row 57). Picker-only: data arrives only after the user taps a
+  suggestion in the out-of-process picker; no background query by date (D §4, cites Apple's picker
+  pages, High). "Believed" → confirmed. Still v2 at most.
+- **App Review gating** (row 56). There is no Apple Intelligence `UIRequiredDeviceCapabilities`
+  key; a dead-end "not supported" screen fails 2.1/2.4.2; the listing must say what needs newer
+  hardware (2.3). **Adopt** — this is PLAN's posture already (the app never hard-requires the
+  model). Listing wording stays PLAN §9's.
+- **Health and memory claims** (D §6, Guideline 1.1). Claims to treat memory loss, assist with
+  dementia or diagnose cognitive decline make it a medical device. **Adopt into the R3 copy lint:**
+  *memory loss* is added to the §5.2 forbidden list (dementia, cognitive, decline and diagnos-
+  are already on it).
+- **CloudKit** (row 55), partial. The private database is not E2E unless the user has Advanced
+  Data Protection on, and an app cannot require ADP; D drafts an honest policy sentence. **Adopt**
+  for a later sync version. Not answered: whether `CKRecord.encryptedValues` gives per-field E2E
+  without ADP. v1 has no sync, so nothing binds now.
+- **Speech assets** (row 46), partial. Models are not in the OS payload; `AssetInventory` must
+  fetch them before first use, so a first capture made offline gets no transcript. **Adopt:**
+  onboarding pre-fetches the assets after the mic grant, and the offline first-capture case is the
+  §8 audio-plus-note branch. Size and Wi-Fi-only: still unknown (D's "could not find" #5).
+- **Diarization.** None in `SpeechTranscriber` (D §2, Argmax). No plan change: a capture is one
+  speaker talking about their own life, and span verification does not depend on speakers.
+- **Install base** (row 59). D estimates 40–50 % of active US iPhones cannot run the model
+  (Medium, reasoned from upgrade cycles, no data source). Changes nothing: Rule 3 exists either way.
+- **`prewarm`.** D says `prewarm(promptPrefix:)` cuts cold-start latency and dates it to iOS 26.4
+  (blog-sourced; the date looks wrong). Note for the device filing model; verify at the SDK.
+
+#### Declined
+
+- **D's chunking recipe** (§1 "Behavior on Long Inputs"): per-chunk *summaries* concatenated into
+  a final extraction call. That is the design Sol S3 rejected (a model reading generated text can
+  recombine it into a relation nobody spoke), and R2 built the replacement: verified spans merged
+  deterministically in Swift, no second call. Declined outright; PLAN §6.3 item 4 now says so.
+- **Private Cloud Compute, 32K tokens** (limits table, "Industry Analysis"). Unverified and **not
+  relied on**: PLAN §6.3 already excludes PCC because nothing leaves the phone. No verification
+  spent on it.
+- **"App Store minimum OS: iOS 15"** (limits table). Unverified and **not relied on**: the
+  deployment target is iOS 26 (PLAN §4 item 3) and CI builds on Xcode 27.
+- iOS 27 image attachments, tool calling, transcript persistence: not v1. Tool calling in
+  particular contradicts "the model extracts; Swift assembles" (§5.1 item 3).
+- Watch capture, PhotoKit/Calendar cues, `NLContextualEmbedding`: out of v1 by PLAN §2.
+- D's export format (Day One JSON) is deferred to R5, not declined: `ai/IDEAS.md`.
+
+#### Still open after D (each closes on the SDK or the device, not on another report)
+
+1. **`@Guide` array-bound spelling.** D's table names only `.count(x)`, an *exact* count. PLAN
+   §6.2 uses `.maximumCount(8)`. If only an exact count exists, an 8-slot `people` array would
+   push the model to pad it with invented names — a Rule 1 hazard even though the verifier drops
+   them. Verify `.maximumCount` (or a range form) exists before `FoundationFilingModel` is
+   written; if it does not, use small optional fields, never an exact count.
+2. Speech usage string (conflict 1) — R6.
+3. Whether `SpeechTranscriber` runs on non-Apple-Intelligence iPhones, or only
+   `DictationTranscriber` does (row 47). D implies transcripts everywhere but cites nothing; Sol's
+   fallback chain stands. Needs an older device or the simulator.
+4. `tokenCount(for:)`: D dates it to **iOS 27**. The deployment target is iOS 26, so the device
+   `TokenCounter` (R2) needs an iOS 26 path (a conservative estimate) behind `#available`.
+5. Camera Control as a door (D: Low) — stays "not a door".
+6. Latency and battery numbers, speech asset size, Wi-Fi rule — D's "could not find" #1 and #5;
+   measured on the 16 Pro at R6.

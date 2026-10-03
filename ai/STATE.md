@@ -73,16 +73,19 @@ still governs; only the order moved.
   Portal App ID, App Store provisioning profile, ASC record, GitHub secrets. `build.yml`
   does not need these (`CODE_SIGNING_REQUIRED=NO`); only `deploy.yml` does, and nothing
   triggers `deploy.yml` by accident (`workflow_dispatch`/tag-push only).
-- [ ] Prompt D (Apple stack) re-run solo, Personal Intelligence (Labs) toggle off (Perry
-  flips it) -- `docs/PLAN.md` section 12 note.
+- [x] Prompt D (Apple stack) re-run -- **landed 2026-10-02 (WW-0101), adjudicated 2026-10-02**
+  in `docs/research/SYNTHESIS-2026-09-21.md` §D "Report D landed". Confirms Sol on the context
+  window, availability, Data Protection and the locked door. Breaks nothing in PLAN.
 
 ## Open Loops
-- **Prompt D LANDED 2026-10-02** (Waterwheel WW-0101, adopted; `docs/research/2026-10-03-retold-apple-stack-platform-facts-prompt-d.md`).
-  NOT YET ADJUDICATED: compare it with Sol's review in SYNTHESIS §D before relying on it. Its PCC 32K
-  figure and App Store minimum-OS row are weakly sourced. Earlier history: prompt D failed 3 times, with the Labs toggle the suspected cause -- science
-  findings (prompt C) are adjudicated and load-bearing for the design; the Apple-stack
-  platform facts prompt D was meant to confirm are currently sourced from Sol's review
-  only (`docs/reviews/PLAN-REVIEW-2026-09-21.md`).
+- **Prompt D adjudicated 2026-10-02** (synthesis §D). Open items it leaves, all closed on the SDK or
+  device, not by research: (1) **speech usage string** -- Sol says not needed, D says needed (weak
+  cite); R6 decides; (2) verify `@Guide(.maximumCount)` exists before `FoundationFilingModel` --
+  an exact `.count` would push the model to pad arrays with invented names; (3) `tokenCount(for:)`
+  is iOS 27 per D, so the device `TokenCounter` needs an iOS 26 path; (4) whether
+  `SpeechTranscriber` runs on non-AI iPhones. PCC 32K and the "iOS 15 minimum" row were not
+  verified and are not relied on (PCC is excluded; floor is iOS 26). New for R3: add *memory loss*
+  to the copy lint (D §6, Guideline 1.1).
 - No App ID / provisioning profile / ASC record yet -- `deploy.yml` exists but cannot run
   until Perry does the operator acts above.
 

@@ -19,6 +19,11 @@ check before re-running). Every `[R-D]` tag is therefore still open as a *second
 row also says "Sol, High", Sol confirmed the fact against Apple documentation in his review, and
 the plan is built on it. The remaining untagged platform facts are this session's recollection
 of Apple's iOS 26 documentation and WWDC 2025. Whether to waive D or re-run it is Perry's call.
+**Update 2026-10-02: report D landed** (Waterwheel WW-0101) and is adjudicated in
+`docs/research/SYNTHESIS-2026-09-21.md` §D, "Report D landed". An `[R-D]` tag now means "see that
+section": it confirms Sol on the context window, availability, Data Protection and the locked
+door; conflicts with Sol on the speech usage string (open until R6) and on `openAppWhenRun`
+(Sol stands); and answers rows 44, 55 (partly), 56 and 57 below. Nothing in this plan is broken by it.
 
 ## 0. The decision this plan is for, in one line
 
@@ -41,20 +46,20 @@ back to it**. Revisiting is as much the product as asking.
 | **Foundation Models framework** (iOS 26): `SystemLanguageModel.default.availability` is `.available` or `.unavailable(reason:)` with `.deviceNotEligible`, `.appleIntelligenceNotEnabled`, `.modelNotReady` | Known (WWDC25 "Meet the Foundation Models framework"); regions/languages **[R-D §1]** | Three distinct no-model states, each with its own copy; the app must be whole in all three (§8) |
 | On-device model context is **4,096 tokens per session, shared** by instructions, prompt, the injected schema and the output; a context-exceeded error is thrown when exceeded (Sol: spelled `LanguageModelError.contextSizeExceeded` in Xcode 27; `GenerationError` deprecated) | Sol, High; **[R-D §1]** to confirm and to say whether iOS 27 changed it | A 10-minute capture *nominally* fits one call but not reliably; **windowed extraction with measured token counts is the rule** (§6.3), and it must still work if the real figure is smaller |
 | `@Generable` structs with `@Guide` constraints; nested `@Generable` types and arrays of them are supported in Apple's own examples | Known; nesting depth and array-size limits **[R-D §1]** | The filing schema is one nested struct (§6.2). Keep it shallow: two levels, short arrays |
-| `GenerationError.guardrailViolation`; the guardrails' scope over personal content (grief, relationships, health mentions) is not documented in detail | **[R-D §1]** | Every model call has a non-model fallback path (§8). A refusal files the capture as "unfiled" with the static deck, never as an error the user must fix |
+| `GenerationError.guardrailViolation`; the guardrails' scope over personal content (grief, relationships, health mentions) is not documented in detail | **[R-D §1]**: not configurable; fires on "sensitive, even if not harmful" — expect refusals on grief and health content routinely (synthesis §D) | Every model call has a non-model fallback path (§8). A refusal files the capture as "unfiled" with the static deck, never as an error the user must fix |
 | `SystemLanguageModel(useCase: .contentTagging)` — a specialised adapter for topics, entities, emotions | Known to exist; quality for names/places **[R-D §1]** | Candidate for the people/place pass in the window extractor; the general model does the rest of the extraction. No model writes a question (§5.1) |
 | **`SpeechAnalyzer` / `SpeechTranscriber`** (iOS 26): on-device, long-form, live volatile results, `AttributedString` results with audio time ranges, **file input** (`start(inputAudioFile:)`) as well as streams; models fetched via `AssetInventory` | Known; language list, model size, whether it needs Wi-Fi, and 10–20-minute continuous behaviour **[R-D §2]** | Save-audio-first is possible: record to file and transcribe from the file if the live pass dies. Time ranges let every derived detail point at the seconds of audio it came from (§5.1) |
 | Whether `SpeechTranscriber` runs on **non-Apple-Intelligence** iPhones on iOS 26, or falls back to `DictationTranscriber` | **[R-D §2]** | Decides whether the no-model mode still has a transcript. Plan assumes yes (transcript everywhere, model optional); if wrong, no-model mode is audio + manual notes |
-| Speech authorisation: `SpeechAnalyzer` modules are on-device and do **not** require `SFSpeechRecognizer.requestAuthorization`; `NSSpeechRecognitionUsageDescription` is needed only if the server-capable `SFSpeechRecognizer` is used | Sol, High; **[R-D §2, §6]** to confirm | Ship the microphone string only, unless report D contradicts Sol. `SpeechTranscriber.isAvailable` + locale/asset checks gate the feature, not a permission prompt |
+| Speech authorisation: `SpeechAnalyzer` modules are on-device and do **not** require `SFSpeechRecognizer.requestAuthorization`; `NSSpeechRecognitionUsageDescription` is needed only if the server-capable `SFSpeechRecognizer` is used | Sol, High; **[R-D §2] contradicts** (both strings, a consent prompt; cited to a Forums tag page only) | **Conflict recorded, resolved at R6** on the SDK and the 16 Pro: does a prompt appear, does a missing key crash. Until then neither answer is assumed. `SpeechTranscriber.isAvailable` + locale/asset checks gate the feature either way |
 | **Action button → Control → intent.** The fastest direct surface is a `ControlWidgetButton` (iOS 18+; the Action button can invoke a Control); it merely runs an `AppIntent`. `openAppWhenRun` is **deprecated in iOS 26** — use `supportedModes = [.foreground(.immediate)]` or `OpenIntent` | Sol, High (latency: Medium) | The door is the Control; the app must still come to the foreground and, if locked, be unlocked. "Under one second" is a measurement, not a promise: test terminated/unlocked, terminated/locked, warm/locked, and interruption recovery on the 16 Pro |
 | A general `AVAudioSession` recording **cannot be activated from a cold background process**, including while locked: foreground/unlock → permission → session activation → file open → engine start is the minimum path | Sol, High (Apple DTS) | Microphone permission is granted during onboarding, never on the capture path. Nothing records before the UI appears |
 | **`AudioRecordingIntent`** (App Intents, iOS 18) grants **no** microphone exemption and requires a Live Activity for the whole recording or iOS stops it | Sol, High | Not the door. Considered only if a Live Activity is wanted for lock-screen status while recording; otherwise a plain foreground intent |
 | Background recording: `UIBackgroundModes: audio` keeps an active `AVAudioSession` (`.record`) alive when the phone locks; interruptions arrive as `AVAudioSession.interruptionNotification` | Known | Lock mid-memory is the common case (phone in pocket, eyes closed). Handle interruption → pause, keep the file, resume on user action |
 | Camera Control (iPhone 16+) cannot launch third-party non-camera intents | Believed no **[R-D §3]** | Not a door |
 | **Data Protection**: `.complete` files are unreadable *and unwritable* while locked; `.completeUnlessOpen` lets an already-open file keep being written | Sol, High | In-progress audio file: `.completeUnlessOpen`. The SwiftData store: `.complete` — which means **transcript segments cannot be appended to the store while locked** (Sol S6). So capture writes an append-only **sidecar journal** (`.completeUnlessOpen`) beside the audio; on unlock the journal is imported into the store and the closed audio file is reclassified to `.complete` |
-| **CloudKit private database**: encrypted, but what Apple can read with vs without Advanced Data Protection, and whether `CKRecord.encryptedValues` gives E2E for our fields | **[R-D §5]** | v1 has **no sync**. The honest privacy-policy sentence for a later sync version depends on this answer |
-| **App Review** rules for gating features on Apple Intelligence; allowed wording for "requires iPhone 15 Pro or later" | **[R-D §6]** | Listing copy (§9) written after the report; the app itself never hard-requires the model |
-| **`JournalingSuggestions`** (iOS 17.2+) cues about recent activity, not a chosen past date range | Believed **[R-D §4]** | Not the core cue source. v2 candidate at most |
+| **CloudKit private database**: encrypted, but what Apple can read with vs without Advanced Data Protection, and whether `CKRecord.encryptedValues` gives E2E for our fields | **[R-D §5]**, partial: not E2E without Advanced Data Protection, which an app cannot require; `encryptedValues` not answered | v1 has **no sync**. The honest privacy-policy sentence for a later sync version is drafted in synthesis §D |
+| **App Review** rules for gating features on Apple Intelligence; allowed wording for "requires iPhone 15 Pro or later" | **[R-D §6]**: no Apple Intelligence capability key; no dead-end screen (2.1, 2.4.2); the listing states what needs newer hardware (2.3) | The app itself never hard-requires the model; listing wording per §9 |
+| **`JournalingSuggestions`** (iOS 17.2+) cues about recent activity, not a chosen past date range | Confirmed **[R-D §4]**: picker-only, no background query by date | Not the core cue source. v2 candidate at most |
 | **PhotoKit** by date range as a period cue | Known feasible; limited-library UX **[R-D §4]** | v2 |
 | Share of active US iPhones with Apple Intelligence hardware | **[R-D §7]** | Sizes how much the no-model mode matters commercially; changes nothing about whether it exists |
 | **Retrieval strengthens; retrieval can distort** — testing effect, reconsolidation, misinformation effect, co-witness contamination | **[R-C §2]** | Rule 1 (§5.1) is the mechanism whatever the exact effect sizes are; the report decides how loud the copy can be about "remember more" |
@@ -128,10 +133,11 @@ Expected: **none in the workflows.** Deltas are in the app target only:
 
 1. Frameworks: `FoundationModels`, `Speech` (SpeechAnalyzer), `AppIntents`, `WidgetKit`
    (controls), `SwiftData`, `AVFoundation`, `UserNotifications`.
-2. `UIBackgroundModes: audio`; usage string `NSMicrophoneUsageDescription` only —
-   `SpeechAnalyzer` needs no speech-recognition authorisation (Sol S5, High; [R-D §2] to
-   confirm), so `NSSpeechRecognitionUsageDescription` is added only if `SFSpeechRecognizer` is
-   ever used; `PrivacyInfo.xcprivacy` with no tracking, no required-reason APIs beyond file
+2. `UIBackgroundModes: audio`; usage string `NSMicrophoneUsageDescription`. Sol S5 (High) says
+   `SpeechAnalyzer` needs no speech-recognition authorisation, so
+   `NSSpeechRecognitionUsageDescription` only if `SFSpeechRecognizer` is ever used; report D
+   says both strings are required (weakly sourced). **Conflict recorded; R6 decides** on the SDK
+   (synthesis §D); `PrivacyInfo.xcprivacy` with no tracking, no required-reason APIs beyond file
    timestamps/disk space if used.
 3. **No Duo gate.** No `#if DUO_SDK`. The only `#available` gates are iOS 26 (floor) and, if a
    27-only API is adopted, `#available(iOS 27, *)` — the plan assumes an **iOS 26 floor** and
@@ -452,7 +458,9 @@ speech rate, schema cost and tokenisation vary, so the rule is:
    over concatenated extracts, which could recombine generated text into a relation nobody
    spoke): union the verified spans across windows, de-duplicate by normalised text and by
    overlapping time range, rank by first occurrence, and resolve `periodName` by majority with
-   the first window breaking ties. Templates are filled only after the merge.
+   the first window breaking ties. Templates are filled only after the merge. (Report D §1
+   recommends the opposite — per-chunk summaries fed to a final extraction call. Declined
+   2026-10-02, synthesis §D: that is the design Sol S3 rejected.)
 
 If report D shows a larger on-device window, the chunk size rises and nothing else changes. A
 Private Cloud Compute model is **not** used for this app — "nothing leaves the device" is the
@@ -568,7 +576,9 @@ context exceeded, rate limit, timeout, cancellation — Sol S7), or when the use
   confirm): `SpeechTranscriber.isAvailable` + locale + asset checks → else try
   `DictationTranscriber` (the documented older-device fallback, on-device dictation locales
   only) → else audio plus a typed one-line note. Nothing is automatic; each step is a checked
-  branch with its own copy.
+  branch with its own copy. Onboarding pre-fetches the speech assets via `AssetInventory` right
+  after the microphone grant (report D: they are not in the OS payload), so a first capture made
+  offline lands in the audio-plus-note branch rather than failing.
 - **Manual filing screen** = the confirm screen with empty fields: title (typed), period
   (picker), when (the same year/age wheel with "not sure"), people and places (typed chips
   with autocomplete from existing entities).
@@ -595,8 +605,8 @@ context exceeded, rate limit, timeout, cancellation — Sol S7), or when the use
 ## 9. App Review and the wellness-copy boundary
 
 - **Usage strings**: `NSMicrophoneUsageDescription` ("Records your memories in your own voice.
-  Recordings stay on this iPhone."); `NSSpeechRecognitionUsageDescription` if required [R-D §2]
-  ("Turns your recording into text on this iPhone."). `PrivacyInfo.xcprivacy` declares no
+  Recordings stay on this iPhone."); `NSSpeechRecognitionUsageDescription` if R6 shows it
+  is required (Sol and report D conflict; synthesis §D) ("Turns your recording into text on this iPhone."). `PrivacyInfo.xcprivacy` declares no
   tracking and no data collection; the privacy policy is verified against the code before every
   release (Wilderness DECISIONS 2026-08-04) and says, truthfully, that the app has no server.
 - **Apple Intelligence gating** [R-D §6]: the app never hard-requires it. Listing wording is
@@ -693,7 +703,7 @@ pivot rule, decided now so it is not decided in a panic.
 
 - `MEMORY-APP-CONCEPT-2026-09-21.md`; `HANDOFF-2026-09-21-hippo-kickoff.md`; `IPHONE-DUO-PLAN-2026-09-18.md`
 - The developer's standing wellness-claims decision (adopted 2026-09-06) and the Wilderness FDA-posture memo (both private)
-- Apple, WWDC 2025: *Meet the Foundation Models framework* (`SystemLanguageModel`, `LanguageModelSession`, `@Generable`, `@Guide`, availability cases); *Explore prompt design & safety for on-device foundation models* (context limit, guardrails); *Bring advanced speech-to-text to your app with SpeechAnalyzer* (`SpeechTranscriber`, `AssetInventory`, file and stream input, volatile results, audio time ranges). Session recollection; **report D confirms or corrects each.**
+- Apple, WWDC 2025: *Meet the Foundation Models framework* (`SystemLanguageModel`, `LanguageModelSession`, `@Generable`, `@Guide`, availability cases); *Explore prompt design & safety for on-device foundation models* (context limit, guardrails); *Bring advanced speech-to-text to your app with SpeechAnalyzer* (`SpeechTranscriber`, `AssetInventory`, file and stream input, volatile results, audio time ranges). Session recollection; report D (WW-0101, 2026-10-02) confirms most of it, adjudicated in synthesis §D.
 - Apple, WWDC 2024: *Extend your app's controls across the system* (ControlWidget, intents from Lock Screen; `AudioRecordingIntent` recollection to be confirmed)
 - Apple developer documentation: App Intents (`supportedModes`, `OpenIntent`, `AudioRecordingIntent`, `AppShortcutsProvider`; `openAppWhenRun` deprecated in iOS 26 per Sol), Data Protection (`FileProtectionType`), `UIBackgroundModes`; Sol's cited pages are listed in `HIPPO-PLAN-REVIEWS-2026-09-21.md` §2
 - Conway & Pleydell-Pearce (2000), *The construction of autobiographical memories in the self-memory system*, Psychological Review — the hierarchy; confirmed by report C.
