@@ -30,6 +30,9 @@ enum FilingTemplates {
     static let broad = QuestionTemplate(
         id: "broad.open", cue: .event,
         pattern: "Anything else at all, however small?")
+
+    /// Every authored template. The lint tests walk this list, so a new template cannot dodge them.
+    static let all: [QuestionTemplate] = [when, whenWithCue, who, sensoryPlace, referent, broad]
 }
 
 enum TemplateAssemblyError: Error, Equatable {
@@ -91,15 +94,17 @@ enum TemplateAssembler {
         }
 
         add(FilingTemplates.broad)
-        if let cue = merged.timeCues.first {
+        // A degenerate span ("I") verifies but cannot carry a question; R3's slot guard drops it.
+        func usable(_ spans: [VerifiedSpan]) -> [VerifiedSpan] { spans.filter { !SlotGuard.isDegenerate($0.text) } }
+        if let cue = usable(merged.timeCues).first {
             add(FilingTemplates.whenWithCue, [cue])
         } else {
             add(FilingTemplates.when)
         }
 
-        var referents = merged.referents.map(\.span)[...]
-        var places = merged.places[...]
-        var people = merged.people[...]
+        var referents = usable(merged.referents.map(\.span))[...]
+        var places = usable(merged.places)[...]
+        var people = usable(merged.people)[...]
         var added = 0
         while added < maxFollowUps, !(referents.isEmpty && places.isEmpty && people.isEmpty) {
             if added < maxFollowUps, let next = referents.popFirst() {
