@@ -61,7 +61,10 @@ final class WellnessLintTests: XCTestCase {
             XCTFail("project.yml is unreadable at \(root.path)")
             return
         }
-        guard let usageRegex = try? NSRegularExpression(pattern: #"NS\w+UsageDescription:\s*"([^"]*)""#) else { return }
+        guard let usageRegex = try? NSRegularExpression(pattern: #"NS\w+UsageDescription:\s*"([^"]*)""#) else {
+            XCTFail("usage-description regex failed to compile")
+            return
+        }
         var usageCount = 0
         for match in usageRegex.matches(in: projectYML, range: NSRange(projectYML.startIndex..., in: projectYML)) {
             guard let valueRange = Range(match.range(at: 1), in: projectYML) else { continue }

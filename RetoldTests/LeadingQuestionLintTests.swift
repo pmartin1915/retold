@@ -92,6 +92,14 @@ final class LeadingQuestionLintTests: XCTestCase {
         XCTAssertTrue(LeadingQuestionLint.violations(in: "Anything else? However small.").isEmpty)
     }
 
+    func testCapitalAfterEmDashStartsAClause() {
+        XCTAssertTrue(LeadingQuestionLint.violations(in: "You mentioned {slot} \u{2014} Is there anything else?").isEmpty)
+    }
+
+    func testReportEverythingNeedsAnAnythingOpener() {
+        XCTAssertTrue(rules(in: "What about the light, the sounds?").contains(.bareDefinite))
+    }
+
     func testSlotAloneIsNeverLinted() {
         XCTAssertTrue(LeadingQuestionLint.violations(in: "{slot}").isEmpty)
     }
