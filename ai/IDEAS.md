@@ -5,4 +5,4 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-09-22 (Sol R1 audit, deferred to R7): put the model pipeline (`FoundationFilingModel`) in a module that cannot see the persistence constructors (`Person(name:)`, `Place(name:)`, relationship setters), so only the confirm flow can write user-owned facts.
 - 2026-09-22 (Sol R1 audit, deferred): confirm on the first CI run whether SwiftData's composite storage calls `Confirmable.init(from:)` on reopen; if not, decide whether to persist validated opaque `Data` instead.
 - 2026-09-22 (Sol R1 audit, deferred to the first schema change): freeze V1 by copying its models into the `RetoldSchemaV1` namespace before defining V2 (Apple's migration pattern).
-- 2026-10-03 research report WW-0101: Retold Apple-stack platform facts (prompt D) -> docs/research/2026-10-03-retold-apple-stack-platform-facts-prompt-d.md (undispositioned)
+- 2026-10-03 research report WW-0101: Retold Apple-stack platform facts (prompt D) -> docs/research/2026-10-03-retold-apple-stack-platform-facts-prompt-d.md (adopted)
