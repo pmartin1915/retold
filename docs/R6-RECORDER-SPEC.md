@@ -434,6 +434,12 @@ protocol CaptureEngine: AnyObject, Sendable {
 }
 ```
 
+**Contract for `stop`:**
+- `stop(captureID:)` **always** emits `engineStopped(duration:)` eventually, even when `start` never completed
+  or already failed. In that case the duration is 0.
+- `stop` is idempotent: a second call for the same capture ID is a no-op and emits nothing further. The
+  `.aborting` path can call it twice.
+
 **Ordering contract for `events`:**
 - `engineStarted` comes before any transcriber event.
 - For each run, every `finalSegment` comes before that run's `transcriberEnded`.
