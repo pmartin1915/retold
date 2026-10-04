@@ -174,6 +174,11 @@ struct PeriodState: Equatable, Sendable {
 }
 ```
 
+**Corrected spans are stale** (Sol R2 audit finding 5, 2026-10-03): every adapter below drops a stored span
+when its capture (found by `span.captureID`) has a `UserCorrection` whose segment `transcript[segmentIndex]`
+has `start <= span.start && span.end <= segment.end`. The span quoted words the user has since corrected, so
+no question may be built on it again. A dropped span yields no candidate, so its filed question is never offered.
+
 Declare every adapter `init` in an **extension**, so the memberwise initialisers stay available to tests.
 
 - `AskRecord.init(_ question: Question)` — fields copied; `slotKey` as §4.
@@ -401,7 +406,9 @@ SpanVerifier.phraseKey(slot text) or "", status:, lastAskedAt:)`, **created if a
   later capture. `PersonState(person:)`: a span from a capture answering an `event.anyone` question is
   dropped; one from a capture with no `answersQuestionID` is kept; one whose capture answers an unresolvable
   question id is dropped; one whose capture is not in `person.episodes` is dropped. `EpisodeState(episode:)`: a
-  capture answering the episode's `broad.open` question does not move `latestCaptureAt`. `recentChannels(from:)` ignores
+  capture answering the episode's `broad.open` question does not move `latestCaptureAt`.
+  A referent span inside a corrected segment is absent from `referentSpans`; a person span inside a
+  corrected segment is absent from `PersonState.spans`. `recentChannels(from:)` ignores
   `broad.open` and never-shown questions and returns the last two, oldest first.
 
 **`NudgePickerTests`:** literal `score` cases (empty never-visited oldest of 6 → 4·5 + 30 + 2 = 52; 10
@@ -432,7 +439,7 @@ check, (4) the sequence gate, (5) the `sameSlot` key, (6) the slotted-first key,
 (8) the referent/sensory.mentioned split, (9) the unprompted filter, (10) the person answered-count gate,
 (11) the nudge `lastPeriod` rule, (12) each of T, S, A in the score, (13) the broad.open outcome exception,
 (14) the referent-family reuse of a filed ask, (15) the broad-answer capture exclusion in the adapter,
-(16) the when.* exclusions from the negative and the sequence gate, (17) the fail-closed unresolved-question drop
+(16) the when.* exclusions from the negative and the sequence gate, (17) the fail-closed unresolved-question drop, (18) the corrected-span drop
 — at least one test must fail for each; a survivor is a missing test and blocks merge. Pre-merge review:
 Kimi transition review per the strategy row, or the Sonnet `reviewer` if Kimi built it. `ai/STATE.md`
 names R5 next.
