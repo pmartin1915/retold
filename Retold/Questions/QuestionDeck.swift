@@ -64,4 +64,9 @@ enum QuestionDeck {
             id: "theme.close", cue: .period,
             pattern: "Who comes to mind when you think of someone you've been close to?"),
     ]
+
+    /// The template with `id`, or nil when no deck template carries it.
+    static func template(id: String) -> QuestionTemplate? {
+        all.first { $0.id == id }
+    }
 }

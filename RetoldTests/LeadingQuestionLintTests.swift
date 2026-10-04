@@ -103,4 +103,46 @@ final class LeadingQuestionLintTests: XCTestCase {
     func testSlotAloneIsNeverLinted() {
         XCTAssertTrue(LeadingQuestionLint.violations(in: "{slot}").isEmpty)
     }
+
+    // MARK: R4: transcript-aware unmentionedChannel (docs/R4-ENGINE-SPEC.md section 2)
+
+    func testNewInflectionHearingIsAChannelTrigger() {
+        XCTAssertEqual(
+            rules(in: "What were you hearing?"),
+            [.unmentionedChannel]
+        )
+    }
+
+    func testMentionedChannelClearsUnmentionedButKeepsBareDefinite() {
+        let pattern = "What did the place smell like?"
+        let mentioned = LeadingQuestionLint.violations(in: pattern, mentionedChannels: [.smell])
+        XCTAssertFalse(mentioned.contains { $0.rule == .unmentionedChannel })
+        XCTAssertTrue(mentioned.contains { $0.rule == .bareDefinite })
+
+        let unmentioned = LeadingQuestionLint.violations(in: pattern, mentionedChannels: [.sound])
+        XCTAssertTrue(unmentioned.contains { $0.rule == .unmentionedChannel })
+    }
+
+    func testSmellsPatternIsExactlyOneViolation() {
+        let pattern = "What other smells come back to you?"
+        XCTAssertEqual(rules(in: pattern), [.unmentionedChannel])
+        XCTAssertTrue(LeadingQuestionLint.violations(in: pattern, mentionedChannels: [.smell]).isEmpty)
+    }
+
+    func testEmptyMentionedChannelsMatchesLegacyRule() {
+        for template in QuestionDeck.all {
+            XCTAssertEqual(
+                LeadingQuestionLint.violations(in: template.pattern),
+                LeadingQuestionLint.violations(in: template.pattern, mentionedChannels: []),
+                template.id
+            )
+        }
+    }
+
+    func testFirstUnmentionedTriggerWins() {
+        // `hear`'s channel is mentioned, so the scan lands on `smell`.
+        let violations = LeadingQuestionLint.violations(
+            in: "What did you hear and smell?", mentionedChannels: [.sound])
+        XCTAssertEqual(violations, [LeadingViolation(rule: .unmentionedChannel, match: "smell")])
+    }
 }

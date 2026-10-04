@@ -32,7 +32,18 @@ enum LeadingQuestionLint {
     private static let sequenceWords: Set<String> = ["always", "again", "finally", "continue", "continued", "still", "end", "ended", "ending", "afterwards"]
     private static let intensifierPhrases = ["stands out", "stand out"]
     private static let intensifierWords: Set<String> = ["most", "vivid", "clearest", "best", "worst", "favorite", "favourite"]
-    private static let channelWords: Set<String> = ["smell", "smelled", "smelt", "taste", "tasted", "sound", "sounded", "sounds", "hear", "heard", "see", "saw", "look", "looked", "wear", "wearing", "wore", "weather", "music", "playing", "song", "colour", "color", "light", "temperature", "cold", "warm", "hot"]
+    /// Trigger word -> its channel: R3's 28 words plus seven inflections R3 missed
+    /// (hearing, smells, smelling, tastes, tasting, seeing, looking).
+    private static let channelWords: [String: SensoryChannel] = [
+        "sound": .sound, "sounded": .sound, "sounds": .sound, "hear": .sound, "heard": .sound,
+        "hearing": .sound, "music": .sound, "playing": .sound, "song": .sound,
+        "smell": .smell, "smelled": .smell, "smelt": .smell, "smells": .smell, "smelling": .smell,
+        "taste": .taste, "tasted": .taste, "tastes": .taste, "tasting": .taste,
+        "see": .sight, "saw": .sight, "seeing": .sight, "look": .sight, "looked": .sight,
+        "looking": .sight, "colour": .sight, "color": .sight, "light": .sight,
+        "wear": .clothing, "wearing": .clothing, "wore": .clothing,
+        "weather": .weather, "temperature": .weather, "cold": .weather, "warm": .weather, "hot": .weather,
+    ]
     /// Channel nouns whose `the` is allowed inside a report-everything sentence.
     private static let channelNouns: Set<String> = ["light", "sounds", "sound", "weather", "smell", "smells", "air", "colours", "colors", "voices", "place", "wearing", "temperature", "music"]
     private static let tagPattern = ",\\s*(is|are|was|were|did|do|does|have|has|had|can|could|would|will)(n't|nt)?\\s+(it|you|he|she|they|we|there|that)\\s*$"
@@ -41,6 +52,14 @@ enum LeadingQuestionLint {
     /// em dash; `bareDefinite` and the report-everything test work per sentence, the other
     /// rules per clause.
     static func violations(in pattern: String) -> [LeadingViolation] {
+        violations(in: pattern, mentionedChannels: [])
+    }
+
+    /// As `violations(in:)`, but transcript-aware: `unmentionedChannel` fires only for a
+    /// channel the episode's transcript does not mention (PLAN section 7: a wh-question on
+    /// a channel is allowed only when the channel appears in the transcript). With an empty
+    /// set this is the rule's R3 form plus the seven new inflections.
+    static func violations(in pattern: String, mentionedChannels: Set<SensoryChannel>) -> [LeadingViolation] {
         var out: [LeadingViolation] = []
         for rawSentence in pattern.components(separatedBy: CharacterSet(charactersIn: ".?!")) {
             let sentence = rawSentence.trimmingCharacters(in: .whitespaces)
@@ -50,7 +69,7 @@ enum LeadingQuestionLint {
             for rawClause in sentence.components(separatedBy: "\u{2014}") {
                 let clause = rawClause.trimmingCharacters(in: .whitespaces)
                 guard !clause.isEmpty else { continue }
-                appendClauseViolations(clause, to: &out)
+                appendClauseViolations(clause, mentionedChannels: mentionedChannels, to: &out)
             }
         }
         return out
@@ -90,7 +109,11 @@ enum LeadingQuestionLint {
         }
     }
 
-    private static func appendClauseViolations(_ clause: String, to out: inout [LeadingViolation]) {
+    private static func appendClauseViolations(
+        _ clause: String,
+        mentionedChannels: Set<SensoryChannel>,
+        to out: inout [LeadingViolation]
+    ) {
         let clauseTokens = tokens(of: clause)
         guard let opener = clauseTokens.first?.key else { return }
         let keys = clauseTokens.map(\.key)
@@ -134,9 +157,16 @@ enum LeadingQuestionLint {
             out.append(LeadingViolation(rule: .closedQuestion, match: clause))
         }
 
-        if wh.contains(opener),
-           let hit = clauseTokens.first(where: { $0.key != slotKey && channelWords.contains($0.key) }) {
-            out.append(LeadingViolation(rule: .unmentionedChannel, match: hit.surface))
+        if wh.contains(opener) {
+            // The first trigger whose channel the transcript does NOT mention: "What did
+            // you hear and smell?" with [.sound] fails on `smell`, not `hear`.
+            let hit = clauseTokens.first { token in
+                guard token.key != slotKey, let channel = channelWords[token.key] else { return false }
+                return !mentionedChannels.contains(channel)
+            }
+            if let hit {
+                out.append(LeadingViolation(rule: .unmentionedChannel, match: hit.surface))
+            }
         }
     }
 
