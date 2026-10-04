@@ -7,7 +7,7 @@ final class ExportWriterTests: XCTestCase {
     private var folder: URL { root.appendingPathComponent("export", isDirectory: true) }
     private var audioDirectory: URL { root.appendingPathComponent("audio", isDirectory: true) }
 
-    override func setUp() throws {
+    override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("retold-export-writer", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -48,7 +48,7 @@ final class ExportWriterTests: XCTestCase {
     }
 
     func testPathLikeSourceNameIsTreatedAsMissing() throws {
-        for badName in ["../x.m4a", "a/b.m4a", "a\\b.m4a"] {
+        for badName in ["../x.m4a", "a/b.m4a", "a\\b.m4a", "", ".", ".."] {
             let manifest = ExportManifest(files: [
                 ExportFile(path: "audio/x.m4a", content: .audio(sourceFileName: badName)),
             ])
