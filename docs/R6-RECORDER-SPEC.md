@@ -960,6 +960,12 @@ locked.
     emits `stopEngine`.
   - Elapsed time is the engine's written duration. Time spent interrupted does not count.
   - The coordinator owns the timer. Tests drive the event directly.
+  - _As built (R6b part 1):_ the protocol has no duration query, so "recorded time" is measured by the
+    coordinator: a stretch opens on entering `.recording` and closes on leaving it, using the injected
+    `now()`, and one task per stretch sleeps for the time left. `.starting` resets the count and the
+    banner; `.idle` clears the banner. The thresholds are an injectable
+    `CaptureLengthLimits` (`.standard` = 20/30 min), a new last `init` parameter with a default, so the
+    real timer is also tested in milliseconds.
   - Adding the enum case changes the journal format: the `reason` raw values gain `"timeLimit"`, so
     `JournalRecord.v` stays 1. Old readers never see it, because the journal is the app's own and
     short-lived.

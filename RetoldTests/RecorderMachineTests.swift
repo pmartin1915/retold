@@ -132,13 +132,94 @@ final class RecorderMachineTests: XCTestCase {
         }
     }
 
-    func testSecondStartWhileRecordingIsIgnored() {
+    // §7a: a second Action press stops the recording; it never starts a second capture.
+
+    func testSecondStartStopsRecording() {
         var (state, _) = startRecording(makeState())
         (state, _) = RecorderMachine.reduce(state, .engineStarted(captureID: id), now: now) { self.id }
+        let (stopping, effects) = RecorderMachine.reduce(
+            state, .startRequested(answering: nil), now: now) { self.otherID }
+        XCTAssertEqual(stopping.phase, .stopping(captureID: id, reason: .userStop))
+        XCTAssertEqual(effects, [.stopEngine(captureID: id)])
+    }
+
+    func testSecondStartWhileInterruptedStops() {
+        var (state, _) = startRecording(makeState())
+        (state, _) = RecorderMachine.reduce(state, .engineStarted(captureID: id), now: now) { self.id }
+        (state, _) = RecorderMachine.reduce(state, .interruptionBegan, now: now) { self.id }
+        let (stopping, effects) = RecorderMachine.reduce(
+            state, .startRequested(answering: nil), now: now) { self.otherID }
+        XCTAssertEqual(stopping.phase, .stopping(captureID: id, reason: .userStop))
+        XCTAssertEqual(effects, [.stopEngine(captureID: id)])
+    }
+
+    func testSecondStartWhileStartingRequestsStop() {
+        let (state, _) = startRecording(makeState())
+        let (starting, effects) = RecorderMachine.reduce(
+            state, .startRequested(answering: nil), now: now) { self.otherID }
+        XCTAssertEqual(starting.phase, .starting(captureID: id, stopRequested: true))
+        XCTAssertTrue(effects.isEmpty)
+    }
+
+    func testSecondStartWhileStoppingIsIgnored() {
+        var (state, _) = startRecording(makeState())
+        (state, _) = RecorderMachine.reduce(state, .engineStarted(captureID: id), now: now) { self.id }
+        (state, _) = RecorderMachine.reduce(state, .tapStop, now: now) { self.id }
         let (unchanged, effects) = RecorderMachine.reduce(
             state, .startRequested(answering: nil), now: now) { self.otherID }
-        XCTAssertEqual(unchanged.phase, .recording(captureID: id))
+        XCTAssertEqual(unchanged, state)
         XCTAssertTrue(effects.isEmpty)
+    }
+
+    func testSecondStartWhileAbortingIsIgnored() {
+        var (state, _) = startRecording(makeState())
+        (state, _) = RecorderMachine.reduce(state, .engineFailed, now: now) { self.id }
+        XCTAssertEqual(state.phase, .aborting(captureID: id))
+        let (unchanged, effects) = RecorderMachine.reduce(
+            state, .startRequested(answering: nil), now: now) { self.otherID }
+        XCTAssertEqual(unchanged, state)
+        XCTAssertTrue(effects.isEmpty)
+    }
+
+    // MARK: - Time limit (§7a)
+
+    func testTimeLimitStopsRecording() {
+        var (state, _) = startRecording(makeState())
+        (state, _) = RecorderMachine.reduce(state, .engineStarted(captureID: id), now: now) { self.id }
+        let (stopping, effects) = RecorderMachine.reduce(state, .timeLimitReached, now: now) { self.id }
+        XCTAssertEqual(stopping.phase, .stopping(captureID: id, reason: .timeLimit))
+        XCTAssertEqual(effects, [.stopEngine(captureID: id)])
+
+        let (idle, endEffects) = RecorderMachine.reduce(
+            stopping, .engineStopped(captureID: id, duration: 1800), now: now) { self.id }
+        XCTAssertEqual(idle.phase, .idle)
+        XCTAssertEqual(endEffects, [
+            .journal(.end(id, duration: 1800, reason: .timeLimit, endedAt: now)),
+            .closeJournal(captureID: id),
+            .importJournals,
+        ])
+    }
+
+    func testTimeLimitWhileInterruptedStops() {
+        var (state, _) = startRecording(makeState())
+        (state, _) = RecorderMachine.reduce(state, .engineStarted(captureID: id), now: now) { self.id }
+        (state, _) = RecorderMachine.reduce(state, .interruptionBegan, now: now) { self.id }
+        let (stopping, effects) = RecorderMachine.reduce(state, .timeLimitReached, now: now) { self.id }
+        XCTAssertEqual(stopping.phase, .stopping(captureID: id, reason: .timeLimit))
+        XCTAssertEqual(effects, [.stopEngine(captureID: id)])
+    }
+
+    func testTimeLimitIgnoredOutsideRecording() {
+        let idle = makeState()
+        let (starting, _) = startRecording(idle)
+        var stopping = starting
+        (stopping, _) = RecorderMachine.reduce(stopping, .engineStarted(captureID: id), now: now) { self.id }
+        (stopping, _) = RecorderMachine.reduce(stopping, .tapStop, now: now) { self.id }
+        for state in [idle, starting, stopping] {
+            let (unchanged, effects) = RecorderMachine.reduce(state, .timeLimitReached, now: now) { self.id }
+            XCTAssertEqual(unchanged, state)
+            XCTAssertTrue(effects.isEmpty)
+        }
     }
 
     // MARK: - Lock, scene and interruption

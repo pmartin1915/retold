@@ -81,16 +81,25 @@ jobs:
             "$KEYCHAIN_PATH"
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
-      - name: Install provisioning profile
+      # One profile per signed target: the app and the RetoldControls extension (R6 spec section 8).
+      - name: Install provisioning profiles
         env:
-          PROFILE_APP: ${{ secrets.PROVISIONING_PROFILE_APP }}
+          PROVISIONING_PROFILE_APP: ${{ secrets.PROVISIONING_PROFILE_APP }}
+          PROVISIONING_PROFILE_CONTROLS: ${{ secrets.PROVISIONING_PROFILE_CONTROLS }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$PROFILE_APP" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
-          APP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "$RUNNER_TEMP/app.mobileprovision")")
-          cp "$RUNNER_TEMP/app.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/"${APP_UUID}".mobileprovision
-          rm -f "$RUNNER_TEMP/app.mobileprovision"
-          echo "Installed profile $APP_UUID"
+          for NAME in PROVISIONING_PROFILE_APP PROVISIONING_PROFILE_CONTROLS; do
+            PROFILE="${!NAME}"
+            if [ -z "$PROFILE" ]; then
+              echo "Secret $NAME is empty or missing; refusing to continue."
+              exit 1
+            fi
+            echo "$PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+            UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision")")
+            cp "$RUNNER_TEMP/profile.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/"${UUID}".mobileprovision
+            rm -f "$RUNNER_TEMP/profile.mobileprovision"
+            echo "Installed $NAME as profile $UUID"
+          done
 
       - name: Setup App Store Connect API key
         env:
@@ -138,6 +147,8 @@ jobs:
             <dict>
               <key>dev.pmartin1915.retold</key>
               <string>Retold AppStore</string>
+              <key>dev.pmartin1915.retold.controls</key>
+              <string>Retold Controls AppStore</string>
             </dict>
             <key>manageAppVersionAndBuildNumber</key>
             <false/>
@@ -168,6 +179,16 @@ jobs:
           echo "Shipped CFBundleVersion:            $ACTUAL_BUILD (expected $BUILD_NUMBER)"
           if [ "$ACTUAL_BUILD" != "$BUILD_NUMBER" ]; then
             echo "Export discarded the build number override; refusing to upload."
+            exit 1
+          fi
+          # The embedded control extension must carry the same numbers, or App Store Connect rejects it.
+          APPEX_PLIST="$VERIFY_DIR/Payload/Retold.app/PlugIns/RetoldControls.appex/Info.plist"
+          if [ ! -f "$APPEX_PLIST" ]; then echo "RetoldControls.appex missing from the .ipa"; exit 1; fi
+          APPEX_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APPEX_PLIST")
+          APPEX_SHORT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APPEX_PLIST")
+          echo "Shipped RetoldControls.appex: $APPEX_SHORT ($APPEX_BUILD)"
+          if [ "$APPEX_BUILD" != "$BUILD_NUMBER" ] || [ "$APPEX_SHORT" != "$ACTUAL_SHORT" ]; then
+            echo "RetoldControls.appex version does not match the app; refusing to upload."
             exit 1
           fi
           # The toolchain that built what ships, read from the shipped artifact.

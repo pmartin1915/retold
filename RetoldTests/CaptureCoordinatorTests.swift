@@ -37,7 +37,8 @@ final class CaptureCoordinatorTests: XCTestCase {
         route: TranscriptionRoute = .audioOnly(.notChecked),
         makeWriter: ((CaptureFiles, UUID) throws -> any JournalAppending)? = nil,
         now: @escaping () -> Date = Date.init,
-        newID: (() -> UUID)? = nil
+        newID: (() -> UUID)? = nil,
+        lengthLimits: CaptureLengthLimits = .standard
     ) throws -> Harness {
         // Every test drives events for `captureID`, so the reducer must mint that ID by default.
         let newID = newID ?? { [captureID] in captureID }
@@ -66,7 +67,8 @@ final class CaptureCoordinatorTests: XCTestCase {
             inbox: inbox,
             makeWriter: writer,
             now: now,
-            newID: newID
+            newID: newID,
+            lengthLimits: lengthLimits
         )
         return Harness(coordinator: coordinator, engine: engine, transcriber: transcriber,
                        protector: protector, files: files, container: container, inbox: inbox)
@@ -573,6 +575,83 @@ final class CaptureCoordinatorTests: XCTestCase {
 
         let capture = try XCTUnwrap(try fetchCaptures(in: harness.container).first)
         XCTAssertEqual(capture.answersQuestionID, questionID)
+    }
+
+    // MARK: - Length limit (§7a), on the real timer with millisecond limits
+
+    /// Polls `condition` every 10 ms for up to 5 s.
+    @MainActor
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0..<500 where !condition() {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    @MainActor
+    private func hasStopCall(_ engine: MockCaptureEngine) -> Bool {
+        engine.recordedCalls.contains(where: { if case .stop = $0 { return true } else { return false } })
+    }
+
+    @MainActor
+    func testLengthTimerWarnsThenStops() async throws {
+        let harness = try makeHarness(newID: { [captureID] in captureID },
+                                      lengthLimits: CaptureLengthLimits(warning: 0.05, limit: 0.2))
+        harness.coordinator.send(.startRequested(answering: nil))
+        await harness.coordinator.drainEffects()
+        harness.coordinator.handle(.recorder(.engineStarted(captureID: captureID)))
+        XCTAssertFalse(harness.coordinator.lengthWarning)
+
+        try await waitUntil { harness.coordinator.lengthWarning }
+        XCTAssertTrue(harness.coordinator.lengthWarning)
+
+        try await waitUntil { harness.coordinator.state.phase != .recording(captureID: self.captureID) }
+        XCTAssertEqual(harness.coordinator.state.phase, .stopping(captureID: captureID, reason: .timeLimit))
+        await harness.coordinator.drainEffects()
+        XCTAssertTrue(hasStopCall(harness.engine))
+
+        // The capture ends like a Stop, and the banner clears.
+        harness.coordinator.handle(.recorder(.engineStopped(captureID: captureID, duration: 0.2)))
+        await harness.coordinator.drainEffects()
+        XCTAssertEqual(harness.coordinator.state.phase, .idle)
+        XCTAssertFalse(harness.coordinator.lengthWarning)
+        XCTAssertEqual(try fetchCaptures(in: harness.container).count, 1)
+    }
+
+    @MainActor
+    func testInterruptedTimeDoesNotCountTowardLimit() async throws {
+        let harness = try makeHarness(newID: { [captureID] in captureID },
+                                      lengthLimits: CaptureLengthLimits(warning: 0.15, limit: 0.3))
+        harness.coordinator.send(.startRequested(answering: nil))
+        await harness.coordinator.drainEffects()
+        harness.coordinator.handle(.recorder(.engineStarted(captureID: captureID)))
+        harness.coordinator.send(.interruptionBegan)
+
+        // Far longer than both limits, all of it interrupted.
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertFalse(harness.coordinator.lengthWarning)
+        XCTAssertEqual(harness.coordinator.state.phase, .interrupted(captureID: captureID))
+
+        harness.coordinator.send(.tapResume)
+        try await waitUntil { harness.coordinator.state.phase != .recording(captureID: self.captureID) }
+        XCTAssertEqual(harness.coordinator.state.phase, .stopping(captureID: captureID, reason: .timeLimit))
+    }
+
+    @MainActor
+    func testUserStopCancelsLengthTimer() async throws {
+        let harness = try makeHarness(newID: { [captureID] in captureID },
+                                      lengthLimits: CaptureLengthLimits(warning: 0.1, limit: 0.2))
+        harness.coordinator.send(.startRequested(answering: nil))
+        await harness.coordinator.drainEffects()
+        harness.coordinator.handle(.recorder(.engineStarted(captureID: captureID)))
+        harness.coordinator.send(.tapStop)
+        harness.coordinator.handle(.recorder(.engineStopped(captureID: captureID, duration: 0.01)))
+        await harness.coordinator.drainEffects()
+
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(harness.coordinator.state.phase, .idle)
+        XCTAssertFalse(harness.coordinator.lengthWarning)
+        let stops = harness.engine.recordedCalls.filter { if case .stop = $0 { return true } else { return false } }
+        XCTAssertEqual(stops.count, 1)
     }
 
     @MainActor

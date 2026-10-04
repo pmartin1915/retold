@@ -7,6 +7,15 @@ import SwiftData
 // overtake a start. The store is touched only inside importJournals/retranscribePending and only
 // while protectedDataAvailable.
 
+/// §7a: recorded-time thresholds for one capture. Time spent interrupted does not count.
+/// Injectable so tests can run the real timer in milliseconds.
+struct CaptureLengthLimits: Equatable, Sendable {
+    var warning: TimeInterval
+    var limit: TimeInterval
+
+    static let standard = CaptureLengthLimits(warning: 20 * 60, limit: 30 * 60)
+}
+
 @MainActor @Observable
 final class CaptureCoordinator {
     private(set) var state: RecorderState
@@ -14,6 +23,7 @@ final class CaptureCoordinator {
     private(set) var journalError: Error?         // last journal failure, for the UI
     private(set) var processedEventCount = 0      // incremented after each handled event (tests)
     private(set) var lastImport: JournalImporter.Report?
+    private(set) var lengthWarning = false        // §7a: the recorder screen's banner, from limits.warning
 
     let files: CaptureFiles
     let importer: JournalImporter
@@ -26,6 +36,7 @@ final class CaptureCoordinator {
     @ObservationIgnored private let makeWriter: (CaptureFiles, UUID) throws -> any JournalAppending
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let newID: () -> UUID
+    @ObservationIgnored private let lengthLimits: CaptureLengthLimits
 
     @ObservationIgnored private var effectQueue: [RecorderEffect] = []
     @ObservationIgnored private var isDraining = false
@@ -37,6 +48,9 @@ final class CaptureCoordinator {
     @ObservationIgnored private var journaledFinalTexts: [String] = []
     @ObservationIgnored private var currentVolatile: String = ""
     @ObservationIgnored private var degradedCaptures: Set<UUID> = []   // a journal append failed
+    @ObservationIgnored private var recordedBeforeSegment: TimeInterval = 0   // closed .recording stretches
+    @ObservationIgnored private var segmentStart: Date?                       // the open .recording stretch
+    @ObservationIgnored private var lengthTask: Task<Void, Never>?
 
     init(engine: any CaptureEngine,
          fileTranscriber: any FileTranscriber,
@@ -49,7 +63,8 @@ final class CaptureCoordinator {
          inbox: CaptureLaunchInbox = .shared,
          makeWriter: @escaping (CaptureFiles, UUID) throws -> any JournalAppending,
          now: @escaping () -> Date = Date.init,
-         newID: @escaping () -> UUID = UUID.init) {
+         newID: @escaping () -> UUID = UUID.init,
+         lengthLimits: CaptureLengthLimits = .standard) {
         self.engine = engine
         self.fileTranscriber = fileTranscriber
         self.routeProvider = routeProvider
@@ -60,6 +75,7 @@ final class CaptureCoordinator {
         self.makeWriter = makeWriter
         self.now = now
         self.newID = newID
+        self.lengthLimits = lengthLimits
         self.state = RecorderState(permission: initialPermission,
                                    protectedDataAvailable: protectedDataAvailable)
 
@@ -117,8 +133,10 @@ final class CaptureCoordinator {
 
     /// reduce, enqueue effects, drain.
     func send(_ event: RecorderEvent) {
+        let oldPhase = state.phase
         let (newState, effects) = RecorderMachine.reduce(state, event, now: now(), newID: newID)
         state = newState
+        updateLengthTimer(from: oldPhase)
         processedEventCount += 1
         effectQueue.append(contentsOf: effects)
         drain()
@@ -213,6 +231,62 @@ final class CaptureCoordinator {
         let joined = journaledFinalTexts.joined(separator: " ")
         liveText = joined.isEmpty ? currentVolatile
             : (currentVolatile.isEmpty ? joined : joined + " " + currentVolatile)
+    }
+
+    // MARK: - Length limit (§7a)
+
+    private static func isRecording(_ phase: RecorderPhase) -> Bool {
+        if case .recording = phase { return true }
+        return false
+    }
+
+    /// Counts recorded time only: a stretch opens on entering .recording and closes on leaving it,
+    /// so .interrupted time does not count. A new capture (.starting) resets the count and the banner.
+    private func updateLengthTimer(from oldPhase: RecorderPhase) {
+        let wasRecording = Self.isRecording(oldPhase)
+        let isRecording = Self.isRecording(state.phase)
+        if case .starting = state.phase {
+            recordedBeforeSegment = 0
+            segmentStart = nil
+            lengthWarning = false
+        }
+        if wasRecording && !isRecording {
+            if let start = segmentStart {
+                recordedBeforeSegment += max(0, now().timeIntervalSince(start))
+            }
+            segmentStart = nil
+            lengthTask?.cancel()
+            lengthTask = nil
+        }
+        if !wasRecording && isRecording {
+            segmentStart = now()
+            scheduleLengthTimer()
+        }
+        if state.phase == .idle {
+            lengthWarning = false
+        }
+    }
+
+    /// One task per .recording stretch, sleeping only for the time left. Cancelled when the stretch closes.
+    private func scheduleLengthTimer() {
+        lengthTask?.cancel()
+        let recorded = recordedBeforeSegment
+        let limits = lengthLimits
+        lengthTask = Task { [weak self] in
+            let untilWarning = limits.warning - recorded
+            if untilWarning > 0 {
+                try? await Task.sleep(for: .seconds(untilWarning))
+                if Task.isCancelled { return }
+            }
+            guard let self else { return }
+            self.lengthWarning = true
+            let untilLimit = limits.limit - max(recorded, limits.warning)
+            if untilLimit > 0 {
+                try? await Task.sleep(for: .seconds(untilLimit))
+                if Task.isCancelled { return }
+            }
+            self.send(.timeLimitReached)
+        }
     }
 
     // MARK: - Launch inbox and capture start
