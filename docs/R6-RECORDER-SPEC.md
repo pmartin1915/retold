@@ -950,6 +950,26 @@ locked.
 - Its label is "Record a memory", it uses the `mic.fill` symbol, and it sets
   `.displayName("Record a memory")`.
 
+## 7a. R6b — decided 2026-10-04 (Perry)
+
+- **Maximum capture length.** At 20 minutes of recording, `CaptureCoordinator` exposes a
+  `lengthWarning: Bool` (a banner on the recorder screen; no notification). At 30 minutes the recording
+  ends exactly like a Stop.
+  - It needs a new reducer event `timeLimitReached` and a new `CaptureEndReason.timeLimit`.
+  - In `.recording` or `.interrupted`, `timeLimitReached` goes to `.stopping(id, reason: .timeLimit)` and
+    emits `stopEngine`.
+  - Elapsed time is the engine's written duration. Time spent interrupted does not count.
+  - The coordinator owns the timer. Tests drive the event directly.
+  - Adding the enum case changes the journal format: the `reason` raw values gain `"timeLimit"`, so
+    `JournalRecord.v` stays 1. Old readers never see it, because the journal is the app's own and
+    short-lived.
+- **A second Action press stops the recording.** In `.recording` or `.interrupted`, `startRequested`
+  now behaves like `tapStop`. In `.starting` it sets `stopRequested`. In `.stopping` and `.aborting` it
+  is still ignored. This replaces the R6a row that ignored a second press. Update
+  `testSecondStartWhileRecordingIsIgnored` into `testSecondStartStopsRecording`, and add a test for
+  each phase.
+- **Live Activity:** deferred to 1.1.
+
 ## 8. R6b — project and pipeline changes
 
 **The speech usage string is decided here.** Add `NSSpeechRecognitionUsageDescription: "Turns your recording
@@ -997,7 +1017,7 @@ dependency. The first R6b PR must show `RetoldControls.appex` under `Retold.app/
 
 ## 9. Perry's acts and the device checklist (R6b)
 
-**Apple sitting.** It is short: the boss drives the browser, and Perry signs in and clicks Create.
+**Apple sitting — DONE 2026-10-04.** Items 1–3 are complete. Item 4 is waiting on the R6b PR. The sitting was short: the boss drove the browser, and Perry signed in and clicked Create.
 1. Create the App ID `dev.pmartin1915.retold.controls`: explicit, with no capabilities.
 2. Create an App Store profile **"Retold Controls AppStore"** for it, using the same distribution certificate
    as "Retold AppStore" (expires 2027-03-14).
