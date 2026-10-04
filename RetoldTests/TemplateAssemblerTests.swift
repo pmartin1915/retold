@@ -123,3 +123,75 @@ final class TemplateAssemblerTests: XCTestCase {
         XCTAssertTrue(TemplateAssembler.followUps(from: withContent).contains { $0.templateID == "who.person" })
     }
 }
+
+// MARK: period.slot, the one non-span fill (R5)
+
+@MainActor
+extension TemplateAssemblerTests {
+    private var periodSlotTemplate: QuestionTemplate {
+        QuestionDeck.template(id: "period.slot")!
+    }
+
+    func testPeriodTitleFillsPeriodSlot() throws {
+        let built = try TemplateAssembler.assemble(
+            periodSlotTemplate, periodTitle: PeriodTitleFill.fixture("Twenties"))
+        XCTAssertEqual(built.text, "When you think of Twenties, what comes back first?")
+        XCTAssertEqual(built.slots, [])
+        XCTAssertEqual(built.templateID, "period.slot")
+        XCTAssertEqual(built.cue, .period)
+    }
+
+    func testPeriodTitleIsTrimmed() throws {
+        let built = try TemplateAssembler.assemble(
+            periodSlotTemplate, periodTitle: PeriodTitleFill.fixture("  High school \n"))
+        XCTAssertEqual(built.text, "When you think of High school, what comes back first?")
+    }
+
+    func testPeriodTitleRejectsOtherTemplates() {
+        for template in [FilingTemplates.who, FilingTemplates.broad] {
+            XCTAssertThrowsError(try TemplateAssembler.assemble(
+                template, periodTitle: PeriodTitleFill.fixture("High school"))) {
+                XCTAssertEqual($0 as? TemplateAssemblyError, .notAPeriodTitleTemplate)
+            }
+        }
+    }
+
+    func testPeriodTitleRejectsEmpty() {
+        XCTAssertThrowsError(try TemplateAssembler.assemble(
+            periodSlotTemplate, periodTitle: PeriodTitleFill.fixture("   "))) {
+            XCTAssertEqual($0 as? TemplateAssemblyError, .emptySlot)
+        }
+    }
+
+    func testPeriodTitleRejectsFunctionWordsOnly() {
+        XCTAssertThrowsError(try TemplateAssembler.assemble(
+            periodSlotTemplate, periodTitle: PeriodTitleFill.fixture("That"))) {
+            XCTAssertEqual($0 as? TemplateAssemblyError, .slotIsFunctionWord)
+        }
+    }
+
+    func testPeriodTitleWithSlotMarkerIsNotReexpanded() throws {
+        let built = try TemplateAssembler.assemble(
+            periodSlotTemplate, periodTitle: PeriodTitleFill.fixture("{slot} years"))
+        XCTAssertEqual(built.text, "When you think of {slot} years, what comes back first?")
+    }
+
+    func testPeriodTitleNewlinesBecomeOneSpace() throws {
+        let built = try TemplateAssembler.assemble(
+            periodSlotTemplate, periodTitle: PeriodTitleFill.fixture("High\n\nschool"))
+        XCTAssertTrue(built.text.contains("of High school,"), built.text)
+    }
+
+    func testPeriodTitleRejectsFixtureWithWrongSlotCount() {
+        let noSlot = QuestionTemplate.fixture(id: "period.slot", cue: .period, pattern: "No slot here?")
+        XCTAssertThrowsError(try TemplateAssembler.assemble(
+            noSlot, periodTitle: PeriodTitleFill.fixture("High school"))) {
+            XCTAssertEqual($0 as? TemplateAssemblyError, .notAPeriodTitleTemplate)
+        }
+    }
+
+    func testPeriodTitleFillFromPeriod() {
+        let period = Period(title: "Camp Lakeview", sortOrder: 0)
+        XCTAssertEqual(period.titleFill.text, "Camp Lakeview")
+    }
+}

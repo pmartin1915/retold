@@ -483,6 +483,10 @@ answer, and the ordering rule unlocks a level only on what the user has already 
 
 1. *Period cues* once the user has named the period: "What else comes to mind from that time?",
    "Who do you think of when you think of that time?"
+
+_2026-10-04 (R5): an empty period (no episodes) offers one opener, period.slot filled with the
+period's own title, so a no-model user has a way into a seeded period. See docs/R5-DECK-EXPORT-SPEC.md §2.2._
+
 2. *Event cues* once the user has described an event: "Is there anything else about that?",
    "How do you remember it — one moment, a stretch of days, something else?"
 3. *Sensory / contextual reinstatement* [R-C §3, cognitive interview — C adopted 2026-09-21,
