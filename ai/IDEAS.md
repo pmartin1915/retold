@@ -21,3 +21,12 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-04 (R5 spec review, copy nit): seeded titles read oddly mid-sentence in the opener ("When you think of The years after school, ..."). Lowercase a leading article at fill time, or reword the seeds; a copy decision, not R5.
 - 2026-10-04 (R5): theme questions have no period; `NudgePicker` has only `.period`/`.unfiled` keys. R7's nudge adapter decides where they go (a `.theme` key, or exclusion).
 - 2026-10-04 (R5): zip the export folder for the share sheet (R7, with the UI).
+- 2026-10-04 (R6): the audio-only route needs a typed one-line note (PLAN §8). It is a stored field, so it waits for the V1 freeze; R7 builds the UI.
+- 2026-10-04 (R6): store `CaptureEndReason` on `Capture` at the V1 freeze, plus a "recovered" marker for adopted orphans, so the library can say "recovered after a crash".
+- 2026-10-04 (R6): set a maximum capture length, or a "still recording?" check, for a capture forgotten in a pocket after an accidental Action press. This is a product decision for Perry; StoryCue caps at 10 minutes.
+- 2026-10-04 (R6): let a second Action press stop a recording. R6 ignores it.
+- 2026-10-04 (R6): a Live Activity for lock-screen recording status and Stop (PLAN §1 calls it optional).
+- 2026-10-04 (R6): a corrected capture is never re-transcribed from the file. R7 decides whether to offer the file pass and drop the corrections.
+- 2026-10-04 (R6a review): an adopted orphan whose protect call fails is never re-protected (no journal, row exists). Add a stored "protection pending" flag at the V1 freeze, or re-protect journal-less rows on import.
+- 2026-10-04 (R6a review): a failed or aborted engine start can leave an empty or partial audio file that pass 2 adopts as a ghost .live capture (then .failed). R6b deletes zero-byte files on start failure; decide whether pass 2 should skip files below a minimum size.
+- 2026-10-04 (R6a review): when the journal cannot be opened, live finals are not journaled; the audio is adopted and the file pass re-transcribes it, so on an audio-only route that capture has no text. Accepted for R6; revisit if journal-open failures show up on device.
