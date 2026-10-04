@@ -8,7 +8,7 @@ import Foundation
 enum MicrophonePermission: Equatable, Sendable { case undetermined, granted, denied }
 
 enum CaptureEndReason: String, Codable, Equatable, Sendable {
-    case userStop, mediaServicesReset, engineFailed
+    case userStop, mediaServicesReset, engineFailed, timeLimit
 }
 
 enum RecorderPhase: Equatable, Sendable {
@@ -51,6 +51,7 @@ enum RecorderEvent: Equatable, Sendable {
     case transcriberEnded(captureID: UUID, run: Int, completed: Bool)
     case interruptionBegan, interruptionEnded(shouldResume: Bool)
     case tapResume, tapStop
+    case timeLimitReached                         // the coordinator's 30-minute timer (spec §7a)
     case engineStopped(captureID: UUID, duration: TimeInterval)
     case mediaServicesReset, engineFailed
     case protectedDataWillBecomeUnavailable, protectedDataDidBecomeAvailable
@@ -87,8 +88,16 @@ enum RecorderMachine {
                 s.answering = answering
                 s.runOffsets = [:]
                 return (s, [.startEngine(captureID: n, route: s.route)])
-            default:
-                // A second Action press never starts a second capture.
+            case .starting(let id, _):
+                // §7a: a second Action press stops the recording as soon as it starts.
+                s.phase = .starting(captureID: id, stopRequested: true)
+                return (s, [])
+            case .recording(let id), .interrupted(let id):
+                // §7a: a second Action press behaves like tapStop.
+                s.phase = .stopping(captureID: id, reason: .userStop)
+                return (s, [.stopEngine(captureID: id)])
+            case .stopping, .aborting:
+                // Never a second capture.
                 return (state, [])
             }
 
@@ -145,6 +154,15 @@ enum RecorderMachine {
                 return (s, [])
             case .recording(let id), .interrupted(let id):
                 s.phase = .stopping(captureID: id, reason: .userStop)
+                return (s, [.stopEngine(captureID: id)])
+            default:
+                return (state, [])
+            }
+
+        case .timeLimitReached:
+            switch s.phase {
+            case .recording(let id), .interrupted(let id):
+                s.phase = .stopping(captureID: id, reason: .timeLimit)
                 return (s, [.stopEngine(captureID: id)])
             default:
                 return (state, [])

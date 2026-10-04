@@ -68,6 +68,7 @@ final class CaptureJournalTests: XCTestCase {
             JournalRecord.paused(captureID, at: date),
             JournalRecord.resumed(captureID, at: date),
             JournalRecord.end(captureID, duration: 42.5, reason: .mediaServicesReset, endedAt: date),
+            JournalRecord.end(captureID, duration: 1800, reason: .timeLimit, endedAt: date),   // §7a
         ]
         for record in records {
             let data = try JournalCoding.line(record)
