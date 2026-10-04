@@ -33,3 +33,9 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-04 (R6b review): if the store cannot open at launch (e.g. locked before first unlock), startupFailed is terminal for that launch and no recording is possible. Retry on protectedDataDidBecomeAvailable, or open the container lazily so the recorder works without it.
 - 2026-10-04 (R6b review): a mid-capture input-format change (Bluetooth HFP, headset) now ends the capture as engineFailed; the audio so far is kept. Better: reinstall the tap with a converter to the file's format and keep recording. Decide after device testing shows how often it happens.
 - 2026-10-04 (R6b): the app icon is a generated placeholder (serif R on brown) so TestFlight accepts the build; Perry picks the real icon before App Store submission.
+- 2026-10-04 (R7a): detail tagging in the confirm flow (PLAN §6.1 note) moved to 1.1; `Detail(quote:kind:)` stays unused in 1.0.
+- 2026-10-04 (R7a): `DeviceTokenCounter` estimates characters ÷ 3. Add the measured `tokenCount(for:)` path behind `#available(iOS 27, *)` in 1.1 (PLAN §6.3 item 1).
+- 2026-10-04 (R7a): proposals are not stored. Rejections are logged only at File, and there is no re-offer filter. If logging moves to tap time, add the phraseKey filter (dropped from R7a in Sonnet review, finding 14a).
+- 2026-10-04 (R7a): `Episode.place` is single, so the confirm flow is single-select for place. Several places per episode is a schema change for the V1 freeze.
+- 2026-10-04 (R7a): person and place matching uses names only; aliases are never written in 1.0. Add alias matching when a merge or rename UI writes aliases.
+- 2026-10-04 (R7a): a session-only outcome cache avoids re-running the model on reopen. If device timing shows long waits on first open, consider running the pipeline when transcription completes.

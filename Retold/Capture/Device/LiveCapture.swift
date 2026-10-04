@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import UIKit
 
 /// The composition root: builds the device adapters and the coordinator exactly once.
@@ -9,6 +10,7 @@ enum LiveCapture {
         let coordinator: CaptureCoordinator
         let engine: LiveCaptureEngine
         let prefetch: AssetPrefetch
+        let container: ModelContainer
     }
 
     @MainActor
@@ -41,7 +43,12 @@ enum LiveCapture {
             makeWriter: { files, captureID in
                 try JournalWriter(files: files, captureID: captureID, protector: protector)
             })
-        return LiveCaptureServices(coordinator: coordinator, engine: engine, prefetch: AssetPrefetch())
+        return LiveCaptureServices(
+            coordinator: coordinator,
+            engine: engine,
+            prefetch: AssetPrefetch(),
+            container: container
+        )
     }
 
     /// .complete on the store directory, the store file and its -wal/-shm siblings, each only

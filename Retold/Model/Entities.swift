@@ -71,8 +71,7 @@ import SwiftData
     /// texts, joined with single spaces, in order, unaltered (fewer if shorter). R1's word rule.
     @discardableResult func setExcerpt(from transcript: CompletedTranscript) -> Bool {
         guard captures.contains(where: { $0.id == transcript.captureID }) else { return false }
-        let words = transcript.segments.flatMap { $0.text.split(whereSeparator: \.isWhitespace) }
-        excerpt = words.prefix(25).map { String($0) }.joined(separator: " ")
+        excerpt = transcript.excerpt
         return true
     }
 
