@@ -1,6 +1,7 @@
 # R5 spec — no-model mode (DeckFilingModel, default periods, period.slot, theme cards) and export
 
-_Written 2026-10-04. Step R5 of `../storycue/docs/STRATEGY-2026-09-22.md`. Governing design: `docs/PLAN.md`
+_Written 2026-10-04; Sonnet spec review folded the same day (14 findings, all taken except the copy nit,
+logged to IDEAS). Step R5 of `../storycue/docs/STRATEGY-2026-09-22.md`. Governing design: `docs/PLAN.md`
 §5.3 (Rule 3: a no-model mode is mandatory; `DeckFilingModel` is the third `FilingModel`), §8 (the no-model
 mode: mode selection, default periods, theme cards, the reason copy), §7 (period cues, the ordering rule),
 §2 "Keep" and §4 item 4 (the export folder; the export manifest is tested under XCTest against fixtures),
@@ -9,8 +10,8 @@ in build order; §4 (export) is independent of §1–§3._
 
 ## Scope
 
-**In:** six new source files, additive edits to `TemplateAssembler.swift` and `QuestionEngine.swift`, six
-new test files, additions to two existing test files. Pure Swift, XCTest. **No schema change** (no
+**In:** five new source files, additive edits to `TemplateAssembler.swift` and `QuestionEngine.swift`, five
+new test files, a dated note in PLAN §7, additions to two existing test files. Pure Swift, XCTest. **No schema change** (no
 `@Model` added, removed or retyped; no stored property added). No `project.yml` or `.github/` change
 (`Retold/` is the app target's source directory, so a new `Retold/Export/` folder is picked up).
 
@@ -51,6 +52,11 @@ The exception is enforced by type, the R4.5 way:
   accepts only the `period.slot` template.
 - `PeriodTitleFill` is **not** `Codable`, and has no public or internal memberwise init. A test-only
   `static func fixture(_:)` sits inside `#if DEBUG`. CI's Release compile rejects any production caller.
+
+**Stated exception to PLAN §5.1 item 6 (traceability).** A `period.slot` question persists with
+`slots: []`, so its text cannot be rebuilt from `templateID` + `slots` alone; the filler is the linked
+`Question.period`'s title, which the user owns and may since have renamed. Rule 1 still holds (no model
+text is involved). This is deliberate and recorded here so a later audit does not flag it as a leak.
 
 **Never widen an access level to make something compile.** If a `fileprivate` init is in the way, the
 code is in the wrong file.
@@ -127,10 +133,12 @@ enum DefaultPeriods {
     static let seededKey = "retold.didSeedDefaultPeriods"
 
     /// Seeds the six periods once per install. If `defaults.bool(forKey: seededKey)` is true, does
-    /// nothing and returns false. Otherwise sets the key to true and then: if the store already holds
-    /// any Period (fetchCount > 0), inserts nothing and returns false; else inserts one Period per
-    /// title, sortOrder 0...5 in `titles` order, createdAt = `now` for all six, approxStartAge and
-    /// approxEndAge left nil, and returns true. Does not call save().
+    /// nothing and returns false. Otherwise: if the store already holds any Period (fetchCount > 0;
+    /// a throw propagates and the flag stays unset), sets the key and returns false; else inserts one
+    /// Period per title, sortOrder 0...5 in `titles` order, createdAt = `now` for all six,
+    /// approxStartAge and approxEndAge left nil, then calls context.save() (a throw propagates and
+    /// the flag stays unset), then sets the key and returns true. The flag is written LAST, so a
+    /// failure never leaves an install flagged but unseeded.
     @MainActor @discardableResult
     static func seedIfNeeded(_ context: ModelContext, defaults: UserDefaults, now: Date = Date()) throws -> Bool
 }
@@ -172,10 +180,12 @@ extension Period {
 
 extension TemplateAssembler {   // or inside the enum body; same file either way
     /// Fills period.slot with a period title. Throws .notAPeriodTitleTemplate unless
-    /// template.id == "period.slot"; .emptySlot if the title is empty after trimming
+    /// template.id == "period.slot" AND template.slotCount == 1 (checked before any indexing);
+    /// .emptySlot if the title is empty after trimming
     /// whitespace and newlines; .slotIsFunctionWord under the same function-word rule as span
-    /// slots. Otherwise the text is the pattern with its single {slot} replaced by
-    /// `fill.text` trimmed of leading/trailing whitespace and newlines, built by the same
+    /// slots. Otherwise the text is the pattern with its single {slot} replaced by the
+    /// normalised title: `fill.text` with each run of newlines replaced by one space, then
+    /// trimmed of leading/trailing whitespace. Built by the same
     /// split-and-interleave as assemble(_:slots:segments:) (so a title containing "{slot}" is
     /// never re-expanded). The result has slots == [] (no transcript span is involved) and
     /// templateID "period.slot", cue .period.
@@ -190,10 +200,12 @@ helper that both entry points call; do not copy the word list.
 **Persisted form.** `Question.slots` is `[VerifiedSpan]`, so a title fill persists as `slots: []`. The
 caller that persists the offer (R7) sets `question.period = period`. Consequences, all deliberate:
 
-- `AskRecord.slotKey` is `""` for `period.slot`, so a retired `period.slot` shares the slotless negative
-  triple `(cue .period, "")` with `period.else`/`period.who`/`period.where` on the same period. That is the
-  PLAN-literal negative rule already logged in `ai/IDEAS.md` (R4 spec review, item 12); R5 does not change
-  it.
+- `AskRecord.slotKey` is `""` for `period.slot`, the same triple `(cue .period, "")` as
+  `period.else`/`period.who`/`period.where`. **A retired opener must not silence the period cues that
+  come after the first episode**: it was asked about an empty period, and "I don't remember" there says
+  nothing about the episodes to come. So R5 makes one additive edit to the shared person/period loop:
+  its `negatives` filter also excludes `templateID == "period.slot"`. No R4 behaviour changes, because
+  no R4 path ever creates a `period.slot` question.
 - **Staleness.** `Question.text` is fixed at init and `Period.title` is editable. The engine re-assembles
   every offer from the current title (it already builds a fresh `AssembledQuestion` per call and attaches
   `existingQuestionID`), so `EngineOffer.question.text` is always current. The persisted `Question.text`
@@ -224,8 +236,9 @@ The `@MainActor init(period:questions:)` adapter also sets `titleFill = period.t
 
 1. **`episodeCount == 0`:** the opener. If `titleFill` is nil, return `[]`. Let
    `existing = asks.first { $0.templateID == "period.slot" }`. If existing is `.answered` or `.retired`,
-   return `[]`. If any ask is `.retired` with `cue == .period` and `slotKey == ""` and its templateID not
-   in `excludedTemplateIDs` (the existing negative rule), return `[]`. Otherwise assemble
+   return `[]`. If any **other** ask is `.retired` with `cue == .period` and `slotKey == ""` and its
+   templateID not in `excludedTemplateIDs` (the existing negative rule, `period.slot` itself excluded
+   as above), return `[]`. Otherwise assemble
    `period.slot` with `titleFill` (on a throw, return `[]`) and return the single offer, with
    `existingQuestionID = existing?.questionID`.
 2. **`episodeCount >= 1`:** exactly R4's queue (`period.else`, `period.who`, `period.where` through the
@@ -234,7 +247,10 @@ The `@MainActor init(period:questions:)` adapter also sets `titleFill = period.t
 `next(for: PeriodState, recentChannels:)` is unchanged (it already takes the first unblocked offer;
 `period.slot` is on channel `.open`).
 
-**Why §7's gate does not block the empty period.** §7 says period cues come "once the user has named the
+**Why §7's gate does not block the empty period.** This is a recorded departure from the letter of
+PLAN §7, and R5 adds a dated note under PLAN §7 item 1 saying so:
+`_2026-10-04 (R5): an empty period (no episodes) offers one opener, period.slot filled with the
+period's own title, so a no-model user has a way into a seeded period. See docs/R5-DECK-EXPORT-SPEC.md §2.2._` §7 says period cues come "once the user has named the
 period". A period the user typed is named by the user. A seeded period is the app's scaffold, and §8
 makes the static deck the way in for a user with no model, so an empty period page with nothing on it
 would leave that user stuck. The opener is one open question on the period's own title. It presupposes
@@ -369,8 +385,17 @@ struct ExportLibrary: Equatable, Sendable {
 extension ExportLibrary {
     /// The SwiftData adapter. The caller fetches every Period, Episode, Capture and Question.
     /// A Confirmable is read as a fact only when status == .confirmed. Capture.rejectedProposals
-    /// are never read. A question with episode == nil and period != nil goes to that period's
-    /// openQuestions, or is dropped if the period is not in `periods`.
+    /// are never read.
+    /// Questions come ONLY from the `questions` argument (never from episode.questions), filtered
+    /// to status .open or .skipped and templateID != "broad.open" (the opener stays open by design
+    /// and would print on every episode). Routing: episode != nil -> that episode's openQuestions
+    /// (person-linked questions included), or dropped if the episode is not in `episodes`;
+    /// episode == nil, period != nil -> that period's openQuestions, or dropped if absent;
+    /// both nil -> otherOpenQuestions (person ignored).
+    /// ExportQuestion.text is the persisted Question.text, except a period.slot question with a
+    /// period: its text is re-assembled with TemplateAssembler.assemble(_:periodTitle:) on
+    /// period.titleFill, falling back to the persisted text on a throw, so a renamed period
+    /// exports its current title.
     @MainActor
     init(periods: [Period], episodes: [Episode], captures: [Capture], questions: [Question])
 }
@@ -410,11 +435,13 @@ operator.
 
 **Formats.**
 
-- Date: `yyyy-MM-dd HH:mm`.
+- Date: `yyyy-MM-dd HH:mm`. Year and ages: `String(value)` (plain digits, no grouping).
 - Time offset and duration: `m:ss` under one hour, `h:mm:ss` from one hour, whole seconds
-  truncated (`61.9` → `1:01`, `3725` → `1:02:05`).
-- Any user text printed on a single line (titles, names, question text, detail text) has each run of
-  newlines replaced by one space. Nothing else is escaped or altered.
+  truncated (`61.9` → `1:01`, `3725` → `1:02:05`). Negative, NaN or infinite values print as `0:00`.
+- **Every** user string printed (titles, names, place, excerpt, question text, detail text, segment
+  text, correction text) has each run of newlines replaced by one space. Nothing else is escaped or
+  altered; a `"` inside a quoted string is printed as-is.
+- Every output line has trailing whitespace removed (so an empty segment prints `[0:00–0:02]`).
 
 **`transcripts/<ID>.md`**, lines joined with `\n`, ending with one `\n`:
 
@@ -441,6 +468,7 @@ line with nothing to show is omitted entirely (no empty headings, except a perio
 # Retold export
 
 Exported <date>
+Recordings may name other people.
 
 ## <period.title>
 Ages <start>–<end>          (only if both ages; "From age <start>" or "Until age <end>" if one)
@@ -470,6 +498,10 @@ Open questions for this period:
 - <text>
 ```
 
+The `Recordings may name other people.` line is fixed copy, always present (PLAN §9, Guideline
+1.4/5.1). An empty library's index is exactly
+`"# Retold export\n\nExported <date>\nRecordings may name other people.\n"`.
+
 Blank-line rule: one blank line between the title line and `Exported`, before every `##` and `###`
 heading, and before `Open questions for this period:`. No blank line inside an episode block. A
 capture whose `episodeID` names an episode not in `episodes` is listed under Unfiled captures.
@@ -485,8 +517,10 @@ enum ExportWriter {
     /// Creates `folder` (with intermediates) and writes every file of `manifest` under it:
     /// .text as UTF-8, .audio copied from audioDirectory/sourceFileName. A missing audio source is
     /// skipped, not fatal (the export must not fail because one file is gone), and its manifest
-    /// path is returned. Any other filesystem error throws. Existing files at a target path are
-    /// replaced.
+    /// path is returned. A sourceFileName that contains "/" or "\\" or equals ".." is treated as
+    /// missing (skipped and returned), never resolved. Any other filesystem error throws. An
+    /// existing file at a target path is removed before writing or copying (copyItem does not
+    /// overwrite).
     @discardableResult
     static func write(_ manifest: ExportManifest, audioDirectory: URL, to folder: URL) throws -> [String]
 }
@@ -519,6 +553,8 @@ fresh UUID name, removed in `tearDown`)
 - `testSecondRunDoesNotReseed`.
 - `testDoesNotReseedAfterUserDeletesAll` (seed, delete all, run again → 0 periods, false).
 - `testExistingPeriodsSuppressSeedAndSetFlag`.
+- `testSeedIsSavedBeforeFlag` (after a true return, a fresh `ModelContext` on the same container
+  fetches six periods).
 - `testTitlesAreWellnessClean` (`WellnessLint.violations` empty for each).
 
 **`TemplateAssemblerTests.swift`** (additions)
@@ -530,6 +566,9 @@ fresh UUID name, removed in `tearDown`)
 - `testPeriodTitleRejectsEmpty` (`"   "` → `.emptySlot`).
 - `testPeriodTitleRejectsFunctionWordsOnly` (`"That"` → `.slotIsFunctionWord`).
 - `testPeriodTitleWithSlotMarkerIsNotReexpanded` (title `"{slot} years"`).
+- `testPeriodTitleNewlinesBecomeOneSpace` (`"High\n\nschool"` → text contains `"of High school,"`).
+- `testPeriodTitleRejectsFixtureWithWrongSlotCount` (`QuestionTemplate.fixture(id: "period.slot",
+  cue: .period, pattern: "No slot here?")` → `.notAPeriodTitleTemplate`, no crash).
 - `testPeriodTitleFillFromPeriod` (`@MainActor`: `Period(title:sortOrder:).titleFill.text == title`).
 
 **`QuestionEngineTests.swift`** (additions; R4's period tests unchanged)
@@ -543,6 +582,8 @@ fresh UUID name, removed in `tearDown`)
   existing id).
 - `testPeriodWithEpisodeDoesNotOfferOpener` (episodeCount 1, fill set → ids `period.else`,
   `period.who`, `period.where`, exactly as R4).
+- `testRetiredOpenerDoesNotSilencePeriodCues` (episodeCount 1, a retired `period.slot` ask → still
+  the three R4 ids).
 - `testPeriodStateAdapterCarriesTitleFill` (`@MainActor`, in-memory store).
 
 **`ThemeCardsTests.swift`**
@@ -576,12 +617,17 @@ fresh UUID name, removed in `tearDown`)
   capture with a logged `RejectedProposal` whose text is unique; the index contains `Untitled` and
   neither string).
 - `testAdapterRoutesQuestions` (`@MainActor`: episode open question, skipped question, answered question
-  (absent), period question, ownerless theme question).
+  (absent), open `broad.open` (absent), period question, ownerless theme question).
+- `testAdapterExportsCurrentPeriodTitleInOpener` (`@MainActor`: persist a `period.slot` question built
+  for "Junior high", rename the period to "Middle school"; the exported text contains "Middle school").
+- `testEmptyLibraryIndex` (the exact string in §4.2).
+- `testYearPrintsWithoutGrouping` (1998 → `- When: 1998`).
 
 **`ExportWriterTests.swift`** (temp directory per test, removed in `tearDown`)
 
 - `testWritesTextAndAudio` (bytes equal).
 - `testMissingAudioIsSkippedAndReported` (returned path; other files written).
+- `testPathLikeSourceNameIsTreatedAsMissing` (`"../x.m4a"`).
 - `testOverwritesExistingFiles`.
 
 ## 6. `ai/IDEAS.md` additions (append-only)
@@ -591,8 +637,11 @@ fresh UUID name, removed in `tearDown`)
   freeze; author the copy with a lint run and Kimi readability pass.
 - 2026-10-04 (R5): typed-entity fills for people templates (a person typed in manual filing). R5 seals
   only `PeriodTitleFill`; add a sibling fill when the no-model person page is built (R7).
-- 2026-10-04 (R5): a persisted `period.slot` question keeps the title it was built with; offers
-  re-assemble from the current title. R7's views must show `EngineOffer.question.text`.
+- 2026-10-04 (R5): a persisted `period.slot` question keeps the title it was built with; offers and the
+  export re-assemble from the current title. R7's views must show `EngineOffer.question.text`.
+- 2026-10-04 (R5 spec review, copy nit): seeded titles read oddly mid-sentence in the opener ("When
+  you think of The years after school, ..."). Lowercase a leading article at fill time, or reword the
+  seeds; a copy decision, not R5.
 - 2026-10-04 (R5): theme questions have no period; `NudgePicker` has only `.period`/`.unfiled` keys.
   R7's nudge adapter decides where they go (a `.theme` key, or exclusion).
 - 2026-10-04 (R5): zip the export folder for the share sheet (R7, with the UI).
@@ -606,6 +655,7 @@ fresh UUID name, removed in `tearDown`)
 - Do not add a `@Model`, a stored property on a `@Model`, or a schema version.
 - Do not give `PeriodTitleFill` a non-`fileprivate` init, a `Codable` conformance, or a producer
   outside `TemplateAssembler.swift`. Do not pass a `String` to any assembler entry point.
+- Do not edit `docs/PLAN.md` beyond the one dated §7 note.
 - Do not lint filled question text with `LeadingQuestionLint`.
 - Do not write a `.proposed` or `.rejected` value, or a `RejectedProposal`, into any export file.
 - Do not run `git checkout`, `git switch`, `git reset` or `git stash` in the main checkout.
@@ -618,4 +668,4 @@ fresh UUID name, removed in `tearDown`)
 - `grep -rn "PeriodTitleFill(" Retold/` matches only `TemplateAssembler.swift`.
 - `grep -rn "import FoundationModels" Retold/` matches nothing.
 - `git diff main -- Retold/Questions/QuestionDeck.swift` is empty.
-- `ai/IDEAS.md` has the five §6 lines; `ai/STATE.md` marks R5 merged and names R6 next.
+- `ai/IDEAS.md` has the six §6 lines; PLAN §7 has the dated note from §2.2; `ai/STATE.md` marks R5 merged and names R6 next.
