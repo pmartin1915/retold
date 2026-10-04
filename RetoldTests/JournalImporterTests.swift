@@ -111,6 +111,56 @@ final class JournalImporterTests: XCTestCase {
     }
 
     @MainActor
+    func testAnyRunEndedFalsePreventsComplete() throws {
+        // Run 0 ended false, run 1 ended true: a hole in run 0 means the file pass must run.
+        var records = completeJournal()
+        let endIndex = try XCTUnwrap(records.firstIndex { $0.kind == .transcriberEnded })
+        records[endIndex] = .transcriberEnded(captureID, run: 0, completed: false)
+        records.insert(.runStarted(captureID, run: 1, audioOffset: 10), at: endIndex + 1)
+        records.insert(.transcriberEnded(captureID, run: 1, completed: true), at: endIndex + 2)
+        let files = makeFiles()
+        try stubAudio(files, id: captureID)
+        try writeJournal(files, records)
+        let container = try makeContainer()
+        let (importer, _, _) = makeImporter(files)
+
+        _ = importer.importAll(into: container, excluding: nil)
+        let capture = try XCTUnwrap(fetchCapture(captureID, in: container))
+        XCTAssertEqual(capture.transcriptionStatus, .live)
+    }
+
+    @MainActor
+    func testStartedRunWithoutEndPreventsComplete() throws {
+        // Run 1 started and never ended; run 0's completed end must not win.
+        var records = completeJournal()
+        let endIndex = try XCTUnwrap(records.firstIndex { $0.kind == .transcriberEnded })
+        records.insert(.runStarted(captureID, run: 1, audioOffset: 10), at: endIndex + 1)
+        let files = makeFiles()
+        try stubAudio(files, id: captureID)
+        try writeJournal(files, records)
+        let container = try makeContainer()
+        let (importer, _, _) = makeImporter(files)
+
+        _ = importer.importAll(into: container, excluding: nil)
+        let capture = try XCTUnwrap(fetchCapture(captureID, in: container))
+        XCTAssertEqual(capture.transcriptionStatus, .live)
+    }
+
+    @MainActor
+    func testZeroJournaledDurationUsesProbe() throws {
+        let files = makeFiles()
+        try stubAudio(files, id: captureID)
+        try writeJournal(files, completeJournal(duration: 0))
+        let container = try makeContainer()
+        let (importer, probe, _) = makeImporter(files)
+        probe.setDuration(12, for: files.audioURL(for: captureID))
+
+        _ = importer.importAll(into: container, excluding: nil)
+        let capture = try XCTUnwrap(fetchCapture(captureID, in: container))
+        XCTAssertEqual(capture.duration, 12)
+    }
+
+    @MainActor
     func testLastTranscriberEndedDecides() throws {
         // completed true, then a later false -> .live.
         var records = completeJournal()

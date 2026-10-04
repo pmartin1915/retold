@@ -25,6 +25,7 @@ struct JournalImporter {
     func importAll(into container: ModelContainer, excluding: UUID?) -> Report {
         var report = Report()
         let context = ModelContext(container)
+        context.autosaveEnabled = false
 
         // Pass 1: journals, in journalURLs order.
         let urls = (try? JournalReader.journalURLs(in: files)) ?? []
@@ -45,7 +46,14 @@ struct JournalImporter {
                 continue
             }
 
-            if fetchCapture(cid, context: context) != nil {
+            let existing: Capture?
+            do {
+                existing = try fetchCapture(cid, context: context)
+            } catch {
+                report.failed.append(url)
+                continue
+            }
+            if existing != nil {
                 report.alreadyPresent.append(cid)
                 finishJournal(url: url, captureID: cid, corrupt: replay.corruptLine != nil,
                               report: &report)
@@ -56,7 +64,8 @@ struct JournalImporter {
             let begin = replay.records.first { $0.kind == .begin }
             let audioURL = files.audioURL(for: cid)
             let endRecord = replay.records.last { $0.kind == .end }
-            let duration = endRecord?.duration ?? durationProbe.duration(of: audioURL) ?? 0
+            let journaled = endRecord?.duration.flatMap { $0 > 0 ? $0 : nil }
+            let duration = journaled ?? durationProbe.duration(of: audioURL) ?? 0
             let capture = Capture(
                 audioFileName: begin?.audioFileName ?? CaptureFiles.audioFileName(for: cid),
                 duration: duration,
@@ -103,8 +112,14 @@ struct JournalImporter {
         let begin = replay.records.first { $0.kind == .begin }
         let route = begin?.route.flatMap { TranscriptionRoute(journalTag: $0) }
         let hasEnd = replay.records.contains { $0.kind == .end }
-        // "completed": the LAST transcriberEnded record has completed == true.
-        let completed = replay.records.last { $0.kind == .transcriberEnded }?.completed == true
+        // "completed": at least one transcriberEnded, none with completed != true, and every run
+        // that started has a completed transcriberEnded (a hole in any run forces the file pass).
+        let ended = replay.records.filter { $0.kind == .transcriberEnded }
+        let startedRuns = Set(replay.records.filter { $0.kind == .runStarted }.compactMap(\.run))
+        let completedRuns = Set(ended.filter { $0.completed == true }.compactMap(\.run))
+        let completed = !ended.isEmpty
+            && ended.allSatisfy { $0.completed == true }
+            && startedRuns.isSubset(of: completedRuns)
 
         switch route {
         case .some(.speech) where completed && hasEnd,
@@ -162,7 +177,7 @@ struct JournalImporter {
         for audioURL in audioURLs {
             guard let cid = CaptureFiles.captureID(fromFileName: audioURL.lastPathComponent),
                   cid != excluding,
-                  fetchCapture(cid, context: context) == nil,
+                  (try? fetchCapture(cid, context: context)).map({ $0 == nil }) == true,
                   !FileManager.default.fileExists(atPath: files.journalURL(for: cid).path)
             else { continue }
 
@@ -192,9 +207,9 @@ struct JournalImporter {
         }
     }
 
-    private func fetchCapture(_ id: UUID, context: ModelContext) -> Capture? {
+    private func fetchCapture(_ id: UUID, context: ModelContext) throws -> Capture? {
         let cid = id
         let descriptor = FetchDescriptor<Capture>(predicate: #Predicate { $0.id == cid })
-        return try? context.fetch(descriptor).first
+        return try context.fetch(descriptor).first
     }
 }

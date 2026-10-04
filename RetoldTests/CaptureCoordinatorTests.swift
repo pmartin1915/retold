@@ -227,6 +227,7 @@ final class CaptureCoordinatorTests: XCTestCase {
         harness.engine.finish()
 
         await harness.coordinator.run()
+        await harness.coordinator.awaitFilePass()   // launch runs the pass in the background
         let captures = try fetchCaptures(in: harness.container)
         XCTAssertEqual(captures.count, 1)
         let capture = try XCTUnwrap(captures.first)
@@ -391,6 +392,33 @@ final class CaptureCoordinatorTests: XCTestCase {
         XCTAssertEqual(capture.transcript, segments)
     }
 
+    @MainActor
+    func testLockDuringFilePassDoesNotSave() async throws {
+        let harness = try makeHarness(route: .speech(localeID: "en_US"))
+        try insertLiveCapture(harness)
+        let before = try XCTUnwrap(fetchCapture(captureID, in: harness.container))
+        let beforeStatus = before.transcriptionStatus
+        let beforeTranscript = before.transcript
+        harness.transcriber.gateEnabled = true
+        harness.transcriber.results = [.success([
+            TranscriptSegment(text: "late", start: 0, end: 1, isFinal: true)])]
+
+        let coordinator = harness.coordinator
+        let pass = Task { await coordinator.retranscribePending() }
+        for _ in 0..<1_000 where harness.transcriber.gateWaiterCount == 0 {
+            await Task.yield()
+        }
+        XCTAssertEqual(harness.transcriber.gateWaiterCount, 1)
+        // The phone locks while the file is being transcribed.
+        harness.coordinator.handle(.recorder(.protectedDataWillBecomeUnavailable))
+        harness.transcriber.releaseGate()
+        await pass.value
+
+        let after = try XCTUnwrap(fetchCapture(captureID, in: harness.container))
+        XCTAssertEqual(after.transcriptionStatus, beforeStatus)
+        XCTAssertEqual(after.transcript, beforeTranscript)
+    }
+
     // MARK: - Journal failures
 
     @MainActor
@@ -408,6 +436,29 @@ final class CaptureCoordinatorTests: XCTestCase {
         harness.coordinator.handle(.recorder(.engineStopped(captureID: captureID, duration: 0)))
         await harness.coordinator.drainEffects()
         XCTAssertEqual(harness.coordinator.state.phase, .idle)
+    }
+
+    @MainActor
+    func testAppendFailureForcesFilePass() async throws {
+        let mockWriter = MockJournalWriter(captureID: captureID)
+        mockWriter.failOnAppends = [2]          // the first segment is lost
+        let harness = try makeHarness(makeWriter: { _, _ in mockWriter })
+        harness.coordinator.send(.startRequested(answering: nil))
+        await harness.coordinator.drainEffects()
+        harness.coordinator.handle(.recorder(.engineStarted(captureID: captureID)))
+        harness.coordinator.handle(.recorder(.finalSegment(
+            captureID: captureID, run: 0,
+            segment: TranscriptSegment(text: "lost", start: 0, end: 1, isFinal: true))))
+        harness.coordinator.handle(.recorder(.finalSegment(
+            captureID: captureID, run: 0,
+            segment: TranscriptSegment(text: "kept", start: 1, end: 2, isFinal: true))))
+        harness.coordinator.handle(.recorder(.transcriberEnded(captureID: captureID, run: 0,
+                                                               completed: true)))
+
+        let texts = mockWriter.records.compactMap(\.text)
+        XCTAssertEqual(texts, ["kept"])        // later appends still land
+        let ended = try XCTUnwrap(mockWriter.records.last { $0.kind == .transcriberEnded })
+        XCTAssertEqual(ended.completed, false)  // so the importer queues the file pass
     }
 
     @MainActor

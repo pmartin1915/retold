@@ -36,6 +36,7 @@ final class CaptureCoordinator {
     @ObservationIgnored private var rerunRequested = false
     @ObservationIgnored private var journaledFinalTexts: [String] = []
     @ObservationIgnored private var currentVolatile: String = ""
+    @ObservationIgnored private var degradedCaptures: Set<UUID> = []   // a journal append failed
 
     init(engine: any CaptureEngine,
          fileTranscriber: any FileTranscriber,
@@ -96,7 +97,8 @@ final class CaptureCoordinator {
         try? files.prepare()
         if state.protectedDataAvailable {
             lastImport = importer.importAll(into: container, excluding: activeCaptureID)
-            await retranscribePending()
+            // In the background: an Action press during a long launch pass must not wait on it.
+            kickFilePass()
         }
         for await event in engine.events {
             handle(event)
@@ -149,8 +151,11 @@ final class CaptureCoordinator {
                     journalError = error
                     send(.tapStop)
                 }
-            case .journal(let record):
+            case .journal(var record):
                 guard let writer = writers[record.captureID] else { continue }
+                if record.kind == .transcriberEnded, degradedCaptures.contains(record.captureID) {
+                    record.completed = false     // a segment may be missing: force the file pass
+                }
                 do {
                     try writer.append(record)
                     if record.kind == .segment, let text = record.text {
@@ -159,14 +164,16 @@ final class CaptureCoordinator {
                     }
                 } catch {
                     journalError = error        // the audio is the record; recording continues
+                    degradedCaptures.insert(record.captureID)
                 }
             case .closeJournal(let captureID):
                 writers[captureID]?.close()
                 writers[captureID] = nil
+                degradedCaptures.remove(captureID)
             case .importJournals:
                 guard state.protectedDataAvailable else { continue }
                 lastImport = importer.importAll(into: container, excluding: activeCaptureID)
-                Task { await self.retranscribePending() }
+                kickFilePass()
             case .startEngine, .pauseEngine, .resumeEngine, .stopEngine:
                 outstandingEngineCalls += 1
                 effectContinuation.yield(effect)
@@ -233,36 +240,47 @@ final class CaptureCoordinator {
     /// excluding the active capture. Single-flight: a call made while the pass runs sets
     /// rerunRequested and the running pass loops once more. Only while protectedDataAvailable.
     func retranscribePending() async {
+        kickFilePass()
+        await awaitFilePass()
+    }
+
+    /// Synchronous single-flight start: requests a (re)run and creates the pass task if none is
+    /// running. The task clears filePassTask itself, with no suspension between its last rerun
+    /// check and the clear, so a request can never be lost.
+    private func kickFilePass() {
         guard state.protectedDataAvailable else { return }
-        if let task = filePassTask {
-            rerunRequested = true
-            await task.value
-            return
-        }
-        let task = Task { [weak self] in
+        rerunRequested = true
+        guard filePassTask == nil else { return }
+        filePassTask = Task { [weak self] in
             guard let self else { return }
-            repeat {
+            while self.rerunRequested && self.state.protectedDataAvailable {
                 self.rerunRequested = false
                 await self.performOneFilePass()
-            } while self.rerunRequested
+            }
+            self.filePassTask = nil
         }
-        filePassTask = task
-        await task.value
-        filePassTask = nil
+    }
+
+    /// Awaits the running file pass, if any (tests; launch runs the pass in the background).
+    func awaitFilePass() async {
+        while let task = filePassTask { await task.value }
     }
 
     private func performOneFilePass() async {
+        guard state.protectedDataAvailable else { return }
         let context = ModelContext(container)
+        context.autosaveEnabled = false
         guard let captures = try? context.fetch(FetchDescriptor<Capture>()) else { return }
         let candidates = captures
             .filter { [TranscriptionStatus.live, .pending, .fromFile].contains($0.transcriptionStatus) }
             .filter { $0.id != activeCaptureID }
             .filter { FileManager.default.fileExists(atPath: files.audioURL(for: $0.id).path) }
         for capture in candidates {
+            guard state.protectedDataAvailable else { return }  // re-checked after every await
             if !capture.corrections.isEmpty { continue }     // correction indices point at current segments
             let route = await routeProvider()
+            guard state.protectedDataAvailable else { return }
             if case .audioOnly = route { continue }          // stays .live for a later pass
-            guard state.protectedDataAvailable else { return }  // store guard, re-checked per save
             let current = capture.transcript
             do {
                 try capture.updateTranscript(current, status: .fromFile)
