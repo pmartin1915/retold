@@ -66,11 +66,14 @@ import SwiftData
     /// The user types their own title.
     func retitle(byUser text: String) { title.replaceByUser(text) }
 
-    /// The ONLY writer of excerpt: the first 25 whitespace-separated words of the segments'
-    /// texts, joined with single spaces, in order, unaltered (fewer if the transcript is shorter).
-    func setExcerpt(from segments: [TranscriptSegment]) {
-        let words = segments.flatMap { $0.text.split(whereSeparator: \.isWhitespace) }
+    /// The ONLY writer of excerpt. False (excerpt unchanged) unless `transcript` belongs to one of
+    /// this episode's captures; otherwise the first 25 whitespace-separated words of its segments'
+    /// texts, joined with single spaces, in order, unaltered (fewer if shorter). R1's word rule.
+    @discardableResult func setExcerpt(from transcript: CompletedTranscript) -> Bool {
+        guard captures.contains({ $0.id == transcript.captureID }) else { return false }
+        let words = transcript.segments.flatMap { $0.text.split(whereSeparator: \.isWhitespace) }
         excerpt = words.prefix(25).map { String($0) }.joined(separator: " ")
+        return true
     }
 
     var whenQuestion: Question? {
@@ -213,8 +216,8 @@ enum CaptureError: Error, Equatable {
     }
 }
 
-// text/templateID/slots/cue/origin are fixed at init: the audited deck assembler (R3/R4) is
-// the only intended constructor, and nothing may relabel or rewrite a question afterwards.
+// text/templateID/slots/cue/origin are fixed at init: `init(assembled:)` is the only production
+// constructor, and nothing may relabel or rewrite a question afterwards.
 @Model final class Question {
     var id: UUID
     private(set) var text: String                                    // assembled by Swift from templateID + slots (R3/R4)
@@ -230,7 +233,21 @@ enum CaptureError: Error, Equatable {
     var lastAskedAt: Date?
     var createdAt: Date
 
-    init(
+    /// The production constructor: a deck question assembled by Swift from verified spans.
+    init(assembled: AssembledQuestion, createdAt: Date = Date()) {
+        id = UUID()
+        text = assembled.text
+        templateID = assembled.templateID
+        slots = assembled.slots
+        cue = assembled.cue
+        origin = .deck
+        status = .open
+        askedCount = 0
+        self.createdAt = createdAt
+    }
+
+    /// Raw form; only `fixture` calls it. Keeps precondition(origin != .model).
+    fileprivate init(
         text: String,
         templateID: String,
         slots: [VerifiedSpan],
@@ -249,4 +266,18 @@ enum CaptureError: Error, Equatable {
         askedCount = 0
         self.createdAt = createdAt
     }
+
+    #if DEBUG
+    /// Tests only: arbitrary text and either non-model origin, for round-trip and engine fixtures.
+    static func fixture(
+        text: String,
+        templateID: String,
+        slots: [VerifiedSpan],
+        cue: CueKind,
+        origin: Origin,
+        createdAt: Date = Date()
+    ) -> Question {
+        Question(text: text, templateID: templateID, slots: slots, cue: cue, origin: origin, createdAt: createdAt)
+    }
+    #endif
 }

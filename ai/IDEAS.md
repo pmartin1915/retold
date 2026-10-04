@@ -13,3 +13,5 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-03 (Sol R2 audit, finding 3, deferred): `SpanVerifier` stores transcript words joined by single spaces with edge punctuation trimmed, so "Dan?" becomes "Dan" and the uncertainty is lost. Keep the exact transcript substring by index range instead.
 - 2026-10-03 (Sol R2 audit, finding 5, R7 half): retire the persisted questions, titles and details sourced from a segment when the user corrects it. R4 only stops offering them.
 - 2026-10-03 (Sol R2 audit, finding 7, dormant): the two-slot check should require the same capture id and segment, not just timestamps. Fix it before the first two-slot template.
+- 2026-10-03 (R4.5, sealed): `.user`-origin questions have no production constructor. Add `Question.init(typedByUser:)` when a PLAN feature needs one; decide its `templateID` then. Do not invent one now.
+- 2026-10-03 (R4.5, sealed): the excerpt has no stored link to its capture; `setExcerpt` checks membership at write time only. Storing the source capture id is a schema change, so it belongs at the V1 freeze.

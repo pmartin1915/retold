@@ -6,9 +6,8 @@ final class ExtractMergerTests: XCTestCase {
     private let captureID = UUID()
 
     private func window(_ segments: [(String, TimeInterval, TimeInterval)]) -> TranscriptWindow {
-        TranscriptWindow(
-            captureID: captureID,
-            segments: segments.map { TranscriptSegment(text: $0.0, start: $0.1, end: $0.2, isFinal: true) })
+        let segs = segments.map { TranscriptSegment(text: $0.0, start: $0.1, end: $0.2, isFinal: true) }
+        return CompletedTranscript.fixture(captureID: captureID, segments: segs).window(segs.indices)
     }
 
     private let periods = ["Primary school", "Junior high"]

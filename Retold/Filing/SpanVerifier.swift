@@ -30,12 +30,6 @@ struct VerifiedSpan: Codable, Hashable, Sendable {
     #endif
 }
 
-/// The transcript segments of one capture that a single model call sees (PLAN section 6.3).
-struct TranscriptWindow: Equatable, Sendable {
-    let captureID: UUID
-    let segments: [TranscriptSegment]
-}
-
 /// Locates a model-returned string in a transcript window. A string that is not a contiguous
 /// quotation is dropped, never rephrased (PLAN section 6.2): nil here means "say nothing".
 enum SpanVerifier {

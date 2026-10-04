@@ -17,10 +17,9 @@ struct FilingPipeline: Sendable {
 
     /// Any failure in any window sends the whole capture to `.noModel`: a half-filed capture
     /// would look complete. An empty transcript has nothing to file and also lands there.
-    func file(captureID: UUID, segments: [TranscriptSegment], periodTitles: [String]) async -> FilingOutcome {
+    func file(_ transcript: CompletedTranscript, periodTitles: [String]) async -> FilingOutcome {
         let windows = WindowChunker.windows(
-            captureID: captureID,
-            segments: segments,
+            of: transcript,
             maxTokens: maxWindowTokens,
             overlapTokens: overlapTokens,
             counter: counter)

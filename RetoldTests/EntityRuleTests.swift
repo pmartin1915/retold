@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class EntityRuleTests: XCTestCase {
     private func makeQuestion(_ text: String, origin: Origin = .deck) -> Question {
-        Question(text: text, templateID: "template.\(text)", slots: [], cue: .event, origin: origin)
+        Question.fixture(text: text, templateID: "template.\(text)", slots: [], cue: .event, origin: origin)
     }
 
     func testAnswerWhenYearIsUserTypedAndAnswersQuestion() {
@@ -54,21 +54,63 @@ final class EntityRuleTests: XCTestCase {
         XCTAssertEqual(episode.whenQuestion?.id, second.id)
     }
 
-    func testSetExcerptIsVerbatimFirst25Words() {
+    func testSetExcerptIsVerbatimFirst25Words() throws {
         let words = (1...40).map { "w\($0)" }
         let segments = [
             TranscriptSegment(text: words[0..<15].joined(separator: " "), start: 0, end: 5, isFinal: true),
             TranscriptSegment(text: words[15..<30].joined(separator: " "), start: 5, end: 10, isFinal: true),
             TranscriptSegment(text: words[30..<40].joined(separator: " "), start: 10, end: 14, isFinal: false),
         ]
+        let capture = Capture(audioFileName: "a.m4a", duration: 14)
+        try capture.completeTranscript(segments)
         let episode = Episode(typedTitle: "E")
-        episode.setExcerpt(from: segments)
+        episode.captures.append(capture)
+        episode.setExcerpt(from: capture.completedTranscript!)
         XCTAssertEqual(episode.excerpt, words[0..<25].joined(separator: " "))
 
         let short = [TranscriptSegment(text: words[0..<10].joined(separator: " "), start: 0, end: 4, isFinal: true)]
+        let shortCapture = Capture(audioFileName: "b.m4a", duration: 4)
+        try shortCapture.completeTranscript(short)
         let shortEpisode = Episode(typedTitle: "S")
-        shortEpisode.setExcerpt(from: short)
+        shortEpisode.captures.append(shortCapture)
+        shortEpisode.setExcerpt(from: shortCapture.completedTranscript!)
         XCTAssertEqual(shortEpisode.excerpt, words[0..<10].joined(separator: " "))
+    }
+
+    /// completedTranscript exists only for a .complete capture and freezes exactly what
+    /// completeTranscript stored: no isFinal filtering, bound to the capture's own id (R4.5).
+    func testCompletedTranscriptExistsOnlyWhenComplete() throws {
+        let capture = Capture(audioFileName: "a.m4a", duration: 10)
+        XCTAssertNil(capture.completedTranscript)
+
+        let live = [TranscriptSegment(text: "one", start: 0, end: 1, isFinal: true)]
+        try capture.updateTranscript(live, status: .live)
+        XCTAssertNil(capture.completedTranscript)
+        try capture.updateTranscript(live, status: .fromFile)
+        XCTAssertNil(capture.completedTranscript)
+
+        try capture.completeTranscript(live)
+        let completed = try XCTUnwrap(capture.completedTranscript)
+        XCTAssertEqual(completed.captureID, capture.id)
+        XCTAssertEqual(completed.segments, capture.transcript)
+    }
+
+    /// The R4.5 write-time guard: an excerpt can only come from a capture of this episode (the
+    /// confirm flow attaches the capture first); another capture's transcript is rejected.
+    func testSetExcerptRejectsAnotherCapturesTranscript() throws {
+        let capture = Capture(audioFileName: "a.m4a", duration: 10)
+        try capture.completeTranscript([
+            TranscriptSegment(text: "words of another capture", start: 0, end: 2, isFinal: true),
+        ])
+        let transcript = try XCTUnwrap(capture.completedTranscript)
+
+        let episode = Episode(typedTitle: "E")
+        XCTAssertFalse(episode.setExcerpt(from: transcript))
+        XCTAssertEqual(episode.excerpt, "")
+
+        episode.captures.append(capture)
+        XCTAssertTrue(episode.setExcerpt(from: transcript))
+        XCTAssertEqual(episode.excerpt, "words of another capture")
     }
 
     func testUpdateTranscriptRejectsCompleteArgument() {

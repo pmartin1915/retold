@@ -89,7 +89,7 @@ final class SchemaRoundTripTests: XCTestCase {
         try capture.addCorrection(segmentIndex: 0, correctedText: "w1 fixed", at: Date(timeIntervalSince1970: 1_700_000_100))
         capture.logRejected(.person, text: "Sara", at: Date(timeIntervalSince1970: 1_700_000_200))
         episode.captures.append(capture)
-        episode.setExcerpt(from: transcript)
+        episode.setExcerpt(from: capture.completedTranscript!)
 
         let quoteSpan = VerifiedSpan.fixture(text: "w3 w4", captureID: capture.id, start: 0.5, end: 1.5)
         let detailQuote = Detail(quote: quoteSpan, kind: .sensory)
@@ -99,7 +99,7 @@ final class SchemaRoundTripTests: XCTestCase {
         episode.details.append(detailQuote)
         episode.details.append(detailTyped)
 
-        let whenQuestion = Question(
+        let whenQuestion = Question.fixture(
             text: "Roughly when was this — a year, or how old you were?",
             templateID: "deck.when.v1",
             slots: [],
@@ -107,7 +107,7 @@ final class SchemaRoundTripTests: XCTestCase {
             origin: .deck,
             createdAt: fixedDate
         )
-        let followUp = Question(
+        let followUp = Question.fixture(
             text: "You said 'w3 w4' — anything else about that?",
             templateID: "deck.referent.v1",
             slots: [quoteSpan],
@@ -575,7 +575,7 @@ extension SchemaRoundTripTests {
         let person = Person(name: "Bee")
         person.aliases = ["bee", "ay", "cee"]
 
-        let question = Question(
+        let question = Question.fixture(
             text: "q",
             templateID: "t",
             slots: [

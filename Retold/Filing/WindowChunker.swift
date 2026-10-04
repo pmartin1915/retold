@@ -19,12 +19,12 @@ enum WindowChunker {
     /// about `overlapTokens` of context repeat. Every window starts at least one segment after the
     /// previous start, so this always terminates and covers every segment.
     static func windows(
-        captureID: UUID,
-        segments: [TranscriptSegment],
+        of transcript: CompletedTranscript,
         maxTokens: Int,
         overlapTokens: Int,
         counter: some TokenCounter
     ) -> [TranscriptWindow] {
+        let segments = transcript.segments
         let counts = segments.map { counter.count($0.text) }
         var windows: [TranscriptWindow] = []
         var start = 0
@@ -36,7 +36,7 @@ enum WindowChunker {
                 total += counts[end]
                 end += 1
             }
-            windows.append(TranscriptWindow(captureID: captureID, segments: Array(segments[start..<end])))
+            windows.append(transcript.window(start..<end))
             if end >= segments.count { break }
 
             var next = end

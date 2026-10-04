@@ -1,5 +1,55 @@
 import Foundation
 
+/// One authored question pattern. `{slot}` marks where a verified span goes. The full audited
+/// deck and its lint are R3; R2 fixes the assembly mechanism and the six patterns of PLAN section 6.2.
+struct QuestionTemplate: Equatable, Sendable {
+    let id: String
+    let cue: CueKind
+    let pattern: String
+
+    static let slotMarker = "{slot}"
+    var slotCount: Int { pattern.components(separatedBy: Self.slotMarker).count - 1 }
+
+    /// Only this file builds templates: every template in a Release build is a deck entry
+    /// (R4.5, Sol R2 finding 2).
+    fileprivate init(id: String, cue: CueKind, pattern: String) {
+        self.id = id
+        self.cue = cue
+        self.pattern = pattern
+    }
+
+    #if DEBUG
+    /// Tests only (non-deck patterns, e.g. a two-slot template). Release builds have no such path.
+    static func fixture(id: String, cue: CueKind, pattern: String) -> QuestionTemplate {
+        QuestionTemplate(id: id, cue: cue, pattern: pattern)
+    }
+    #endif
+}
+
+enum FilingTemplates {
+    static let when = QuestionTemplate(
+        id: "when.open", cue: .event,
+        pattern: "Roughly when was this \u{2014} a year, or how old you were?")
+    static let whenWithCue = QuestionTemplate(
+        id: "when.cue", cue: .event,
+        pattern: "You said '{slot}' \u{2014} roughly what year would that be?")
+    static let who = QuestionTemplate(
+        id: "who.person", cue: .people,
+        pattern: "Who was {slot} to you, back then?")
+    static let sensoryPlace = QuestionTemplate(
+        id: "sensory.place", cue: .sensory,
+        pattern: "Anything about {slot} itself \u{2014} the light, the sounds, the weather? However small.")
+    static let referent = QuestionTemplate(
+        id: "referent.open", cue: .event,
+        pattern: "You mentioned {slot}. Is there anything else about that?")
+    static let broad = QuestionTemplate(
+        id: "broad.open", cue: .event,
+        pattern: "Anything else at all, however small?")
+
+    /// The six filing follow-ups, in offer order; QuestionDeck.all starts with these.
+    static let all: [QuestionTemplate] = [broad, when, whenWithCue, who, sensoryPlace, referent]
+}
+
 /// The seeded question deck (PLAN section 8): the six filing follow-ups first, then the 19
 /// authored templates below, in this order. Every pattern must pass LeadingQuestionLint and
 /// WellnessLint; a pattern that fails either lint is a spec conflict, not something to patch.
