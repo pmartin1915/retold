@@ -39,3 +39,6 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-04 (R7a): `Episode.place` is single, so the confirm flow is single-select for place. Several places per episode is a schema change for the V1 freeze.
 - 2026-10-04 (R7a): person and place matching uses names only; aliases are never written in 1.0. Add alias matching when a merge or rename UI writes aliases.
 - 2026-10-04 (R7a): a session-only outcome cache avoids re-running the model on reopen. If device timing shows long waits on first open, consider running the pipeline when transcription completes.
+- 2026-10-04 (Perry decision, R7 spec section 11): nudges (notification permission, scheduling, NudgePicker adapter, theme-question key) are 1.1.
+- 2026-10-04 (Perry decision): transcript corrections UI is 1.1, and with it Sol R2 finding 5's retire-on-correction and the R6 re-transcription choice.
+- 2026-10-04 (Perry decision): 1.0 ships free, no in-app purchase. The PLAN section 9 one-time unlock lands in 1.1; when it does, grandfather early users or set the capture cap generously (a new cap reads as a takeaway).

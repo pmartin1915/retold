@@ -676,7 +676,10 @@ Covers the availability mapping for every reason, and the prompt's final-segment
    - time the suggestions wait on a 3-minute capture;
    - watch for `.contextExceeded` on a long monologue.
 
-## 11. Open for Perry
+## 11. Open for Perry — DECIDED 2026-10-04
+
+**Perry, 2026-10-04: "Yes to all three."** Nudges, transcript corrections and the one-time unlock
+are all 1.1. 1.0 ships free with no in-app purchase. The questions as they were asked:
 
 1. **Nudges in 1.1?** Asked 2026-10-04, unanswered. Recommendation: yes. They need notification
    permission, scheduling and a copy pass. None of that is on the submit path, and the app is complete
