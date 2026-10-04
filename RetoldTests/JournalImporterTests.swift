@@ -265,8 +265,9 @@ final class JournalImporterTests: XCTestCase {
         let first = importer.importAll(into: container, excluding: nil)
         XCTAssertEqual(first.imported, [captureID])
         let second = importer.importAll(into: container, excluding: nil)
+        // The first import removed the journal, so the second has nothing to do.
         XCTAssertTrue(second.imported.isEmpty)
-        XCTAssertEqual(second.alreadyPresent, [captureID])
+        XCTAssertTrue(second.adoptedOrphans.isEmpty)
         XCTAssertEqual(try captureCount(in: container), 1)
     }
 
@@ -414,24 +415,32 @@ final class JournalImporterTests: XCTestCase {
         try stubAudio(files, id: captureID)
 
         // Reducer: recording state, run 0 at offset 0.
-        var state = RecorderState(permission: .granted, protectedDataAvailable: true)
+        var state = RecorderState(permission: .granted, protectedDataAvailable: true,
+                                  route: .speech(localeID: "en_US"))
         var records: [JournalRecord] = []
+        func journaled(_ effects: [RecorderEffect]) -> [JournalRecord] {
+            effects.compactMap { if case .journal(let r) = $0 { r } else { nil } }
+        }
+        var effects: [RecorderEffect]
         (state, _) = RecorderMachine.reduce(state, .startRequested(answering: nil),
                                             now: date) { self.captureID }
-        (state, _) = RecorderMachine.reduce(state, .engineStarted(captureID: captureID),
-                                            now: date) { self.captureID }
-        (state, _) = RecorderMachine.reduce(
+        (state, effects) = RecorderMachine.reduce(state, .engineStarted(captureID: captureID),
+                                                  now: date) { self.captureID }
+        records += journaled(effects)
+        (state, effects) = RecorderMachine.reduce(
             state, .transcriberRunStarted(captureID: captureID, run: 0, audioOffset: 0),
             now: date) { self.captureID }
+        records += journaled(effects)
         for segment in expected {
             let (_, effects) = RecorderMachine.reduce(
                 state, .finalSegment(captureID: captureID, run: 0, segment: segment),
                 now: date) { self.captureID }
             records += effects.compactMap { if case .journal(let r) = $0 { r } else { nil } }
         }
-        (state, _) = RecorderMachine.reduce(
+        (state, effects) = RecorderMachine.reduce(
             state, .transcriberEnded(captureID: captureID, run: 0, completed: true),
             now: date) { self.captureID }
+        records += journaled(effects)
         let (_, endEffects) = RecorderMachine.reduce(
             state, .engineStopped(captureID: captureID, duration: 7), now: date) { self.captureID }
         records += endEffects.compactMap { if case .journal(let r) = $0 { r } else { nil } }

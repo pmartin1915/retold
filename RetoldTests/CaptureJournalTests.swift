@@ -278,6 +278,9 @@ final class CaptureJournalTests: XCTestCase {
         let record = JournalRecord.segment(
             captureID, run: 0,
             segment: TranscriptSegment(text: "a\nb", start: 0, end: 1, isFinal: true))
+        try writer.append(.begin(captureID, audioFileName: CaptureFiles.audioFileName(for: captureID),
+                                 createdAt: Date(timeIntervalSince1970: 0), answering: nil,
+                                 route: .speech(localeID: "en_US")))
         try writer.append(record)
         writer.close()
 

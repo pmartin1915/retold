@@ -37,8 +37,10 @@ final class CaptureCoordinatorTests: XCTestCase {
         route: TranscriptionRoute = .audioOnly(.notChecked),
         makeWriter: ((CaptureFiles, UUID) throws -> any JournalAppending)? = nil,
         now: @escaping () -> Date = Date.init,
-        newID: @escaping () -> UUID = UUID.init
+        newID: (() -> UUID)? = nil
     ) throws -> Harness {
+        // Every test drives events for `captureID`, so the reducer must mint that ID by default.
+        let newID = newID ?? { [captureID] in captureID }
         let files = makeFiles()
         try files.prepare()
         let container = try RetoldSchema.makeInMemoryContainer()
@@ -95,8 +97,8 @@ final class CaptureCoordinatorTests: XCTestCase {
             TranscriptSegment(text: "four", start: 6, end: 8, isFinal: true),
         ]
 
-        // 1. Start while unlocked.
-        harness.coordinator.send(.startRequested(answering: nil))
+        // 1. Start while unlocked (startCapture refreshes the route first, so .begin says speech).
+        await harness.coordinator.startCapture(answering: nil)
         await harness.coordinator.drainEffects()
         harness.coordinator.handle(.recorder(.engineStarted(captureID: captureID)))
         // Create the stub audio after startEngine, as the device adapter would.
