@@ -508,7 +508,15 @@ by then (§5.2).
 
 ### 4.3 What the importer writes to `Capture.transcriptionStatus`
 
-Below, "completed" means the **last** `transcriberEnded` record in the journal has `completed == true`.
+Below, "completed" means all three of these hold:
+- there is at least one `transcriberEnded` record;
+- none of them has `completed != true`;
+- every run that has a `runStarted` record has a completed `transcriberEnded`.
+
+_Amended 2026-10-04 by the R6a code review. The first version said "the last `transcriberEnded` decides",
+which let a completed later run hide an earlier run's hole. Also, a capture whose journal append failed has
+its `transcriberEnded` written as `completed: false` by the coordinator, so a missing segment always forces
+the file pass._
 
 | Journal says | Importer writes |
 |---|---|
