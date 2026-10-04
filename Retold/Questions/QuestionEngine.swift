@@ -117,6 +117,8 @@ extension PersonState {
 struct PeriodState: Equatable, Sendable {
     var episodeCount: Int = 0
     var asks: [AskRecord] = []
+    /// The period's title as a fill; nil only in tests that do not need the opener.
+    var titleFill: PeriodTitleFill? = nil
 }
 
 extension PeriodState {
@@ -126,6 +128,7 @@ extension PeriodState {
             .filter { $0.period?.id == period.id }
             .map { AskRecord($0) }
         episodeCount = period.episodes.count
+        titleFill = period.titleFill
     }
 }
 
@@ -157,8 +160,10 @@ enum QuestionEngine {
 
     /// Templates the engine never offers (R5 owns period.slot and the theme.* cards; the
     /// when question belongs to the confirm flow), and asks that never count as negatives
-    /// or as the user-initiated detail behind the sequence gate.
-    private static let excludedTemplateIDs: Set<String> = ["broad.open", "when.open", "when.cue"]
+    /// or as the user-initiated detail behind the sequence gate. period.slot is excluded
+    /// from negatives on purpose: a retired opener was asked about an EMPTY period, so it
+    /// must not silence the period cues that come once the period has episodes.
+    private static let excludedTemplateIDs: Set<String> = ["broad.open", "when.open", "when.cue", "period.slot"]
 
     // MARK: - Episode queue
 
@@ -267,12 +272,42 @@ enum QuestionEngine {
     // MARK: - Period queue
 
     static func queue(for state: PeriodState) -> [EngineOffer] {
-        guard state.episodeCount >= 1 else { return [] }
-        return queue(templates: periodTemplates, slot: nil, asks: state.asks)
+        guard state.episodeCount == 0 else {
+            return queue(templates: periodTemplates, slot: nil, asks: state.asks)
+        }
+        // The empty-period opener (R5): one question on the period's own title, so a
+        // no-model user has a way into a seeded period. See docs/R5-DECK-EXPORT-SPEC.md
+        // section 2.2 for the recorded departure from PLAN section 7's gate.
+        guard let fill = state.titleFill else { return [] }
+        let existing = state.asks.first { $0.templateID == "period.slot" }
+        if let existing, existing.status == .answered || existing.status == .retired { return [] }
+        // The opener stands down when the user has already retired a period-cue question
+        // about this empty period (the shared negatives rule, period.slot itself excluded).
+        let negatives = state.asks.filter {
+            $0.status == .retired && !excludedTemplateIDs.contains($0.templateID)
+        }
+        if negatives.contains(where: { $0.cue == .period && $0.slotKey == "" }) { return [] }
+        guard let template = QuestionDeck.template(id: "period.slot"),
+              let question = try? TemplateAssembler.assemble(template, periodTitle: fill)
+        else { return [] }
+        return [EngineOffer(question: question, existingQuestionID: existing?.questionID)]
     }
 
     static func next(for state: PeriodState, recentChannels: [QuestionChannel]) -> EngineOffer? {
         queue(for: state).first { !isBlocked($0.channel, recentChannels: recentChannels) }
+    }
+
+    // MARK: - Theme card queue
+
+    /// The card's templates through the shared loop, slot nil, sorted (skipped, ti). No gate: a
+    /// theme card is a way in for any user, including one with an empty library.
+    static func queue(for card: ThemeCard, state: ThemeState) -> [EngineOffer] {
+        let templates = card.templateIDs.compactMap { QuestionDeck.template(id: $0) }
+        return queue(templates: templates, slot: nil, asks: state.asks)
+    }
+
+    static func next(for card: ThemeCard, state: ThemeState, recentChannels: [QuestionChannel]) -> EngineOffer? {
+        queue(for: card, state: state).first { !isBlocked($0.channel, recentChannels: recentChannels) }
     }
 
     /// The shared person/period candidate loop: one slotless option (period) or one
