@@ -6,6 +6,15 @@ struct CompletedTranscript: Equatable, Sendable {
     let captureID: UUID
     let segments: [TranscriptSegment]
 
+    /// R1's word rule: the first 25 whitespace-separated words, in segment order.
+    var excerpt: String {
+        segments
+            .flatMap { $0.text.split(whereSeparator: \.isWhitespace) }
+            .prefix(25)
+            .map { String($0) }
+            .joined(separator: " ")
+    }
+
     fileprivate init(captureID: UUID, segments: [TranscriptSegment]) {
         self.captureID = captureID
         self.segments = segments

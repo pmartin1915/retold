@@ -450,6 +450,8 @@ speech rate, schema cost and tokenisation vary, so the rule is:
 1. **Measure, never estimate from elapsed time.** Use the SDK's runtime token accounting (Sol
    names `SystemLanguageModel.contextSize` and `tokenCount(for:)`; confirm the spelling) and
    Instruments on the 16 Pro; the chunker reads the measured budget, not a constant.
+   _(Dated note 2026-10-04, R7 spec §2.4: `tokenCount(for:)` is iOS 27 and the floor is iOS 26, so
+   1.0 counts characters ÷ 3, a deliberate over-count; the measured path is a 1.1 item.)_
 2. **Fresh session per window.** Windows of **1,400–1,800 tokens** at segment boundaries, with
    **150–250 tokens of overlap**, a **~700-token output reserve**, and **15 % headroom**.
 3. Per window, one `WindowExtract` call (§6.2). Every returned string is verified as a

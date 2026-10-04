@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 import UIKit
 
@@ -35,6 +36,7 @@ struct RetoldApp: App {
 private struct RootView: View {
     let services: LiveCapture.LiveCaptureServices
     @Environment(\.scenePhase) private var scenePhase
+    @State private var autoPresentID: UUID?
 
     private var coordinator: CaptureCoordinator { services.coordinator }
 
@@ -49,11 +51,17 @@ private struct RootView: View {
                 case .starting, .recording, .interrupted, .stopping:
                     RecorderView(coordinator: coordinator)
                 case .idle, .blocked, .aborting:
-                    HomeView(coordinator: coordinator)
+                    HomeView(coordinator: coordinator, autoPresentID: $autoPresentID)
                 }
             }
         }
+        .modelContainer(services.container)
         .task { await coordinator.run() }
+        .onChange(of: coordinator.state.phase) { oldPhase, newPhase in
+            if case .stopping(let id, _) = oldPhase, case .idle = newPhase {
+                autoPresentID = id
+            }
+        }
         // initial: true -- RootView appears only after the services exist, when the scene is already
         // active; without it a cold launch from the Control never drains the launch inbox.
         .onChange(of: scenePhase, initial: true) { _, newPhase in

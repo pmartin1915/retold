@@ -37,10 +37,75 @@ enum AppCopy {
     static let startupFailed = "Retold could not open its storage. Restart the app to try again."
     /// R6b: home screen title (the week-0 scaffold's, moved here so views carry no literals).
     static let homeTitle = "Retold"
-    /// R6b: home screen placeholder (the week-0 scaffold's, moved here so views carry no literals).
-    static let homePlaceholder = "Week 0 scaffold -- recorder lands in week 1 (docs/PLAN.md section 12)"
     /// R6b spec 7a: the recorder banner after 20 minutes of recording.
     static let lengthWarning = "Retold stops this recording at 30 minutes."
+
+    /// R7a: heading for captures that have not been filed.
+    static let unfiledHeader = "Unfiled"
+    /// R7a: heading for filed episodes.
+    static let filedHeader = "Filed"
+    /// R7a: state shown while a capture is being transcribed.
+    static let transcribingLabel = "Transcribing…"
+    /// R7a: state shown when a capture has no transcript.
+    static let noTranscriptLabel = "No transcript — you can still file it"
+    /// R7a: confirm-flow filing action.
+    static let fileButton = "File it"
+    /// R7a: label for an unaccepted suggestion.
+    static let suggestedLabel = "suggested"
+    /// R7a: accepts a suggested value.
+    static let acceptButton = "Use this"
+    /// R7a: rejects a suggested value.
+    static let rejectButton = "Not this"
+    /// R7a: confirm-flow title section.
+    static let titleHeader = "Title"
+    /// R7a: prompt for a user-authored title.
+    static let titlePlaceholder = "Type a title"
+    /// R7a: confirm-flow period section.
+    static let periodHeader = "Period"
+    /// R7a: period picker option for no period.
+    static let noPeriod = "Not in a period"
+    /// R7a: period picker option for a new period.
+    static let newPeriod = "New period…"
+    /// R7a: prompt for a new period title.
+    static let newPeriodPlaceholder = "Name the period"
+    /// R7a: confirm-flow when section.
+    static let whenHeader = "When"
+    /// R7a: year mode for the when answer.
+    static let whenYear = "Year"
+    /// R7a: age mode for the when answer.
+    static let whenAge = "Age"
+    /// R7a: action for leaving the when answer open.
+    static let notSure = "Not sure"
+    /// R7a: confirm-flow people section.
+    static let peopleHeader = "People"
+    /// R7a: confirm-flow place section.
+    static let placesHeader = "Place"
+    /// R7a: action for adding a person.
+    static let addPerson = "Add a person"
+    /// R7a: action for adding a place.
+    static let addPlace = "Add a place"
+    /// R7a: prefix for reusing an existing entity.
+    static let sameAs = "Same as"
+    /// R7a: option for creating a person.
+    static let newPerson = "New person"
+    /// R7a: option for creating a place.
+    static let newPlace = "New place"
+    /// R7a: confirm-flow follow-up section.
+    static let followUpsHeader = "Questions for later"
+    /// R7a: keeps a follow-up question open.
+    static let later = "Later"
+    /// R7a: retires a follow-up question.
+    static let notThisOne = "Not this one"
+    /// R7a: progress copy while suggestions are generated.
+    static let findingSuggestions = "Looking for names and places…"
+    /// R7a: action for cancelling suggestion generation.
+    static let skipSuggestions = "Skip suggestions"
+    /// R7a: settings screen title.
+    static let settingsTitle = "Settings"
+    /// R7a: setting that enables filing suggestions.
+    static let suggestionsToggle = "Suggestions"
+    /// R7a: explanation of where suggestions are generated.
+    static let suggestionsFootnote = "Suggestions are made on this iPhone."
 
     static let all: [String] = [
         newerPhoneReason,
@@ -59,7 +124,39 @@ enum AppCopy {
         pausedLabel,
         startupFailed,
         homeTitle,
-        homePlaceholder,
         lengthWarning,
+        unfiledHeader,
+        filedHeader,
+        transcribingLabel,
+        noTranscriptLabel,
+        fileButton,
+        suggestedLabel,
+        acceptButton,
+        rejectButton,
+        titleHeader,
+        titlePlaceholder,
+        periodHeader,
+        noPeriod,
+        newPeriod,
+        newPeriodPlaceholder,
+        whenHeader,
+        whenYear,
+        whenAge,
+        notSure,
+        peopleHeader,
+        placesHeader,
+        addPerson,
+        addPlace,
+        sameAs,
+        newPerson,
+        newPlace,
+        followUpsHeader,
+        later,
+        notThisOne,
+        findingSuggestions,
+        skipSuggestions,
+        settingsTitle,
+        suggestionsToggle,
+        suggestionsFootnote,
     ]
 }
