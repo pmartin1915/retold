@@ -17,6 +17,31 @@ enum AppCopy {
     /// PLAN section 9: the fallback explanation for unsupported phones.
     static let fallback = "Suggested questions use Apple Intelligence on supported iPhones; recording, filing and browsing work on every iPhone running iOS 26."
 
+    /// R6b: first-run microphone prompt.
+    static let micPrompt = "Retold records your voice while you talk through a memory."
+    /// R6b: first-run grant button.
+    static let micAllow = "Allow microphone"
+    /// R6b: shown when the microphone grant is denied.
+    static let micDenied = "Microphone access is off. Turn it on in Settings to record."
+    /// R6b: home screen record button.
+    static let recordButton = "Record a memory"
+    /// R6b: recorder stop button.
+    static let stopButton = "Stop"
+    /// R6b: recorder resume button while interrupted.
+    static let resumeButton = "Resume"
+    /// R6b: recorder state label while recording.
+    static let recordingLabel = "Recording"
+    /// R6b: recorder state label while interrupted.
+    static let pausedLabel = "Paused"
+    /// R6b: the store failed to open at launch.
+    static let startupFailed = "Retold could not open its storage. Restart the app to try again."
+    /// R6b: home screen title (the week-0 scaffold's, moved here so views carry no literals).
+    static let homeTitle = "Retold"
+    /// R6b: home screen placeholder (the week-0 scaffold's, moved here so views carry no literals).
+    static let homePlaceholder = "Week 0 scaffold -- recorder lands in week 1 (docs/PLAN.md section 12)"
+    /// R6b spec 7a: the recorder banner after 20 minutes of recording.
+    static let lengthWarning = "Retold stops this recording at 30 minutes."
+
     static let all: [String] = [
         newerPhoneReason,
         appleIntelligenceOffReason,
@@ -24,5 +49,17 @@ enum AppCopy {
         reinstatement,
         nudgeWaiting,
         fallback,
+        micPrompt,
+        micAllow,
+        micDenied,
+        recordButton,
+        stopButton,
+        resumeButton,
+        recordingLabel,
+        pausedLabel,
+        startupFailed,
+        homeTitle,
+        homePlaceholder,
+        lengthWarning,
     ]
 }

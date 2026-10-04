@@ -51,6 +51,7 @@ final class CaptureCoordinator {
     @ObservationIgnored private var recordedBeforeSegment: TimeInterval = 0   // closed .recording stretches
     @ObservationIgnored private var segmentStart: Date?                       // the open .recording stretch
     @ObservationIgnored private var lengthTask: Task<Void, Never>?
+    @ObservationIgnored private var hasRun = false
 
     init(engine: any CaptureEngine,
          fileTranscriber: any FileTranscriber,
@@ -110,6 +111,9 @@ final class CaptureCoordinator {
     /// files.prepare(); then, if protectedDataAvailable, one import + file pass; then
     /// `for await e in engine.events { handle(e) }`. Returns when the stream finishes.
     func run() async {
+        // engine.events has a single consumer; a re-created view's .task must not start a second loop.
+        guard !hasRun else { return }
+        hasRun = true
         try? files.prepare()
         if state.protectedDataAvailable {
             lastImport = importer.importAll(into: container, excluding: activeCaptureID)

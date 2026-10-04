@@ -1,27 +1,83 @@
 import SwiftUI
+import UIKit
 
 @main
 struct RetoldApp: App {
+    @State private var services: LiveCapture.LiveCaptureServices?
+    @State private var startupFailed = false
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if startupFailed {
+                    Text(AppCopy.startupFailed)
+                        .padding()
+                } else if let services {
+                    RootView(services: services)
+                } else {
+                    ProgressView()
+                }
+            }
+            .task {
+                guard services == nil, !startupFailed else { return }
+                do {
+                    services = try LiveCapture.makeCoordinator()
+                } catch {
+                    startupFailed = true
+                }
+            }
         }
     }
 }
 
-struct ContentView: View {
+/// Routes between first run, recorder and home, and turns scene / protected-data signals
+/// into coordinator events.
+private struct RootView: View {
+    let services: LiveCapture.LiveCaptureServices
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var coordinator: CaptureCoordinator { services.coordinator }
+
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Retold")
-                .font(.largeTitle.bold())
-            Text("Week 0 scaffold -- recorder lands in week 1 (docs/PLAN.md section 12)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        Group {
+            if coordinator.state.permission == .undetermined {
+                FirstRunView(engine: services.engine, prefetch: services.prefetch) { permission in
+                    coordinator.send(.permissionChanged(permission))
+                }
+            } else {
+                switch coordinator.state.phase {
+                case .starting, .recording, .interrupted, .stopping:
+                    RecorderView(coordinator: coordinator)
+                case .idle, .blocked, .aborting:
+                    HomeView(coordinator: coordinator)
+                }
+            }
         }
-        .padding()
+        .task { await coordinator.run() }
+        // initial: true -- RootView appears only after the services exist, when the scene is already
+        // active; without it a cold launch from the Control never drains the launch inbox.
+        .onChange(of: scenePhase, initial: true) { _, newPhase in
+            Task { @MainActor in
+                switch newPhase {
+                case .active:
+                    coordinator.send(.sceneDidBecomeActive)
+                    await coordinator.drainLaunchInbox()
+                case .inactive:
+                    coordinator.send(.sceneWillResignActive)
+                case .background:
+                    coordinator.send(.sceneDidEnterBackground)
+                @unknown default:
+                    break
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
+            Task { @MainActor in coordinator.send(.protectedDataWillBecomeUnavailable) }
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+            Task { @MainActor in coordinator.send(.protectedDataDidBecomeAvailable) }
+        }
     }
-}
-
-#Preview {
-    ContentView()
 }
