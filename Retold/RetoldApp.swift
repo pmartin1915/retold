@@ -54,7 +54,9 @@ private struct RootView: View {
             }
         }
         .task { await coordinator.run() }
-        .onChange(of: scenePhase) { _, newPhase in
+        // initial: true -- RootView appears only after the services exist, when the scene is already
+        // active; without it a cold launch from the Control never drains the launch inbox.
+        .onChange(of: scenePhase, initial: true) { _, newPhase in
             Task { @MainActor in
                 switch newPhase {
                 case .active:

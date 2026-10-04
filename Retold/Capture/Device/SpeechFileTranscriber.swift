@@ -26,12 +26,22 @@ struct SpeechFileTranscriber: FileTranscriber {
                     }
                 }
                 let analyzer = SpeechAnalyzer(modules: [module])
-                if let lastSample = try await analyzer.analyzeSequence(from: file) {
-                    try await analyzer.finalizeAndFinish(through: lastSample)
-                } else {
+                do {
+                    if let lastSample = try await analyzer.analyzeSequence(from: file) {
+                        try await analyzer.finalizeAndFinish(through: lastSample)
+                    } else {
+                        await analyzer.cancelAndFinishNow()
+                    }
+                    try await withTaskCancellationHandler {
+                        try await consumer.value
+                    } onCancel: {
+                        consumer.cancel()
+                    }
+                } catch {
+                    consumer.cancel()
                     await analyzer.cancelAndFinishNow()
+                    throw error
                 }
-                try await consumer.value
                 continuation.finish()
             } catch {
                 continuation.finish(throwing: error)
