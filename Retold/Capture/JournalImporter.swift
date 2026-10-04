@@ -177,9 +177,12 @@ struct JournalImporter {
         for audioURL in audioURLs {
             guard let cid = CaptureFiles.captureID(fromFileName: audioURL.lastPathComponent),
                   cid != excluding,
-                  (try? fetchCapture(cid, context: context)).map({ $0 == nil }) == true,
                   !FileManager.default.fileExists(atPath: files.journalURL(for: cid).path)
             else { continue }
+            // A fetch error is not "absent": skip rather than risk a duplicate row.
+            let existing: Capture?
+            do { existing = try fetchCapture(cid, context: context) } catch { continue }
+            guard existing == nil else { continue }
 
             let attributes = try? FileManager.default.attributesOfItem(atPath: audioURL.path)
             let capture = Capture(
