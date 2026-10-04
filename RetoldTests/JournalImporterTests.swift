@@ -45,6 +45,7 @@ final class JournalImporterTests: XCTestCase {
         writer.close()
     }
 
+    @discardableResult
     private func stubAudio(_ files: CaptureFiles, id: UUID = UUID()) throws -> URL {
         try files.prepare()
         let url = files.audioURL(for: id)
@@ -381,7 +382,7 @@ final class JournalImporterTests: XCTestCase {
         let files = makeFiles()
         try stubAudio(files, id: captureID)
         try files.prepare()
-        let good = completeJournal().map {
+        let good = try completeJournal().map {
             String(decoding: try JournalCoding.line($0), as: UTF8.self)
         }.joined()
         try Data((good + #"{"captureID":"00000000-0000-00"#).utf8)
