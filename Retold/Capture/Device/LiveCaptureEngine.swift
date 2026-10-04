@@ -50,7 +50,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         mapPermission(AVAudioApplication.shared.recordPermission)
     }
 
-    private static func mapPermission(_ permission: AVAudioApplicationRecordPermission) -> MicrophonePermission {
+    private static func mapPermission(_ permission: AVAudioApplication.recordPermission) -> MicrophonePermission {
         switch permission {
         case .undetermined: return .undetermined
         case .denied: return .denied
