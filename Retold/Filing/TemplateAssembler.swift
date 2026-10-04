@@ -1,40 +1,5 @@
 import Foundation
 
-/// One authored question pattern. `{slot}` marks where a verified span goes. The full audited
-/// deck and its lint are R3; R2 fixes the assembly mechanism and the six patterns of PLAN section 6.2.
-struct QuestionTemplate: Equatable, Sendable {
-    let id: String
-    let cue: CueKind
-    let pattern: String
-
-    static let slotMarker = "{slot}"
-    var slotCount: Int { pattern.components(separatedBy: Self.slotMarker).count - 1 }
-}
-
-enum FilingTemplates {
-    static let when = QuestionTemplate(
-        id: "when.open", cue: .event,
-        pattern: "Roughly when was this \u{2014} a year, or how old you were?")
-    static let whenWithCue = QuestionTemplate(
-        id: "when.cue", cue: .event,
-        pattern: "You said '{slot}' \u{2014} roughly what year would that be?")
-    static let who = QuestionTemplate(
-        id: "who.person", cue: .people,
-        pattern: "Who was {slot} to you, back then?")
-    static let sensoryPlace = QuestionTemplate(
-        id: "sensory.place", cue: .sensory,
-        pattern: "Anything about {slot} itself \u{2014} the light, the sounds, the weather? However small.")
-    static let referent = QuestionTemplate(
-        id: "referent.open", cue: .event,
-        pattern: "You mentioned {slot}. Is there anything else about that?")
-    static let broad = QuestionTemplate(
-        id: "broad.open", cue: .event,
-        pattern: "Anything else at all, however small?")
-
-    /// The six filing follow-ups, in offer order; QuestionDeck.all starts with these.
-    static let all: [QuestionTemplate] = [broad, when, whenWithCue, who, sensoryPlace, referent]
-}
-
 enum TemplateAssemblyError: Error, Equatable {
     case slotCountMismatch
     case slotsFromDifferentSegments
@@ -50,9 +15,17 @@ struct AssembledQuestion: Equatable, Sendable {
     let slots: [VerifiedSpan]
     let cue: CueKind
 
+    /// Only TemplateAssembler.assemble builds one (R4.5, Sol R2 finding 2).
+    fileprivate init(text: String, templateID: String, slots: [VerifiedSpan], cue: CueKind) {
+        self.text = text
+        self.templateID = templateID
+        self.slots = slots
+        self.cue = cue
+    }
+
     /// The persisted form. `.deck` origin: every question the app shows comes from a template.
     func question(createdAt: Date = Date()) -> Question {
-        Question(text: text, templateID: templateID, slots: slots, cue: cue, origin: .deck, createdAt: createdAt)
+        Question(assembled: self, createdAt: createdAt)
     }
 }
 

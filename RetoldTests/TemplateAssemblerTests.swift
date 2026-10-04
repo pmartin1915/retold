@@ -36,7 +36,7 @@ final class TemplateAssemblerTests: XCTestCase {
     }
 
     func testTwoSlotTemplateNeedsBothSpansInOneSegment() throws {
-        let two = QuestionTemplate(id: "test.two", cue: .event, pattern: "{slot} and {slot}")
+        let two = QuestionTemplate.fixture(id: "test.two", cue: .event, pattern: "{slot} and {slot}")
         let segments = [
             TranscriptSegment(text: "Dan by the lake", start: 0, end: 4, isFinal: true),
             TranscriptSegment(text: "later the dock", start: 4, end: 8, isFinal: true),
@@ -55,7 +55,7 @@ final class TemplateAssemblerTests: XCTestCase {
     }
 
     func testThreeSlotsAreNeverAllowed() {
-        let three = QuestionTemplate(id: "test.three", cue: .event, pattern: "{slot} {slot} {slot}")
+        let three = QuestionTemplate.fixture(id: "test.three", cue: .event, pattern: "{slot} {slot} {slot}")
         let spans = [span("a", 0, 1), span("b", 0, 1), span("c", 0, 1)]
         XCTAssertThrowsError(try TemplateAssembler.assemble(three, slots: spans))
     }
@@ -88,6 +88,21 @@ final class TemplateAssemblerTests: XCTestCase {
         XCTAssertEqual(question.text, built.text)
         XCTAssertEqual(question.templateID, "who.person")
         XCTAssertEqual(question.slots, built.slots)
+    }
+
+    /// The R4.5 production constructor copies every field out of the assembled question.
+    func testQuestionFromAssembledCopiesEveryField() throws {
+        let built = try TemplateAssembler.assemble(FilingTemplates.who, slots: [span("Dan", 0, 1)])
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let question = Question(assembled: built, createdAt: createdAt)
+        XCTAssertEqual(question.origin, .deck)
+        XCTAssertEqual(question.text, built.text)
+        XCTAssertEqual(question.templateID, built.templateID)
+        XCTAssertEqual(question.slots, built.slots)
+        XCTAssertEqual(question.cue, built.cue)
+        XCTAssertEqual(question.status, .open)
+        XCTAssertEqual(question.askedCount, 0)
+        XCTAssertEqual(question.createdAt, createdAt)
     }
 
     func testSlotMadeOnlyOfFunctionWordsThrows() {

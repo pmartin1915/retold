@@ -5,8 +5,8 @@ import XCTest
 @MainActor
 final class QuestionOutcomeTests: XCTestCase {
     private func question(_ templateID: String = "event.else", status: QuestionStatus = .open) -> Question {
-        let question = Question(text: "Is there anything else about that?", templateID: templateID,
-                                slots: [], cue: .event, origin: .deck)
+        let question = Question.fixture(text: "Is there anything else about that?", templateID: templateID,
+                                        slots: [], cue: .event, origin: .deck)
         question.status = status
         return question
     }

@@ -471,7 +471,7 @@ extension QuestionEngineTests {
 
 extension QuestionEngineTests {
     func testTemplateFailingTheLintIsNotQueued() {
-        let template = QuestionTemplate(
+        let template = QuestionTemplate.fixture(
             id: "test.sounds",
             cue: .sensory,
             pattern: "What other sounds come back to you?"
@@ -624,7 +624,7 @@ extension QuestionEngineTests {
             episode.questions.append(assembled.question())
         }
         // The same span filed twice deduplicates to one (first by createdAt, id wins).
-        let duplicate = Question(
+        let duplicate = Question.fixture(
             text: "You mentioned the pier. Is there anything else about that?",
             templateID: "referent.open",
             slots: [pierSpan],
@@ -671,7 +671,7 @@ extension QuestionEngineTests {
         episode.captures.append(capture1)
         episode.captures.append(capture2)
 
-        let broad = Question(
+        let broad = Question.fixture(
             text: "Anything else at all, however small?",
             templateID: "broad.open",
             slots: [],
@@ -711,7 +711,7 @@ extension QuestionEngineTests {
         otherEpisode.captures.append(capOutside)
 
         // A capture answering an event.anyone question: promptable, so its span is dropped.
-        let anyoneQuestion = Question(
+        let anyoneQuestion = Question.fixture(
             text: "Is there anyone you think of with this?",
             templateID: "event.anyone",
             slots: [],
@@ -724,7 +724,7 @@ extension QuestionEngineTests {
         capUnresolved.answersQuestionID = UUID() // names no question anywhere: fail closed
 
         func whoQuestion(_ span: VerifiedSpan) -> Question {
-            let question = Question(
+            let question = Question.fixture(
                 text: "Who was \(span.text) to you, back then?",
                 templateID: "who.person",
                 slots: [span],
@@ -774,13 +774,13 @@ extension QuestionEngineTests {
         let danSpan = VerifiedSpan.fixture(text: "Dan", captureID: capture.id, start: 0, end: 2)
         let boatSpan = VerifiedSpan.fixture(text: "sailed", captureID: capture.id, start: 0, end: 2)
         let lighthouseSpan = VerifiedSpan.fixture(text: "the lighthouse", captureID: capture.id, start: 2, end: 4)
-        let who = Question(text: "Who was Dan to you, back then?", templateID: "who.person",
-                           slots: [danSpan], cue: .people, origin: .deck)
+        let who = Question.fixture(text: "Who was Dan to you, back then?", templateID: "who.person",
+                                   slots: [danSpan], cue: .people, origin: .deck)
         who.person = person
-        let staleReferent = Question(text: "You mentioned sailed. Is there anything else about that?",
-                                     templateID: "referent.open", slots: [boatSpan], cue: .event, origin: .deck)
-        let freshReferent = Question(text: "You mentioned the lighthouse. Is there anything else about that?",
-                                     templateID: "referent.open", slots: [lighthouseSpan], cue: .event, origin: .deck)
+        let staleReferent = Question.fixture(text: "You mentioned sailed. Is there anything else about that?",
+                                             templateID: "referent.open", slots: [boatSpan], cue: .event, origin: .deck)
+        let freshReferent = Question.fixture(text: "You mentioned the lighthouse. Is there anything else about that?",
+                                             templateID: "referent.open", slots: [lighthouseSpan], cue: .event, origin: .deck)
         for question in [who, staleReferent, freshReferent] {
             context.insert(question)
             episode.questions.append(question)
@@ -793,7 +793,7 @@ extension QuestionEngineTests {
 
     func testRecentChannelsFromQuestions() {
         func question(_ templateID: String, cue: CueKind, askedAt: Date?) -> Question {
-            let question = Question(
+            let question = Question.fixture(
                 text: "t", templateID: templateID, slots: [], cue: cue, origin: .deck
             )
             question.lastAskedAt = askedAt

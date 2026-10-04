@@ -6,9 +6,8 @@ final class SpanVerifierTests: XCTestCase {
     private let captureID = UUID()
 
     private func window(_ segments: [(String, TimeInterval, TimeInterval, Bool)]) -> TranscriptWindow {
-        TranscriptWindow(
-            captureID: captureID,
-            segments: segments.map { TranscriptSegment(text: $0.0, start: $0.1, end: $0.2, isFinal: $0.3) })
+        let segs = segments.map { TranscriptSegment(text: $0.0, start: $0.1, end: $0.2, isFinal: $0.3) }
+        return CompletedTranscript.fixture(captureID: captureID, segments: segs).window(segs.indices)
     }
 
     private var sample: TranscriptWindow {

@@ -17,7 +17,8 @@ final class WindowChunkerTests: XCTestCase {
 
     private func windows(_ sizes: [Int], max: Int, overlap: Int) -> [TranscriptWindow] {
         WindowChunker.windows(
-            captureID: captureID, segments: segments(sizes), maxTokens: max, overlapTokens: overlap, counter: counter)
+            of: CompletedTranscript.fixture(captureID: captureID, segments: segments(sizes)),
+            maxTokens: max, overlapTokens: overlap, counter: counter)
     }
 
     func testEmptyTranscriptHasNoWindows() {
