@@ -407,11 +407,19 @@ struct ConfirmView: View {
             ).file(transcript, periodTitles: periodTitles)
         }
         suggestionTask = task
-        let outcome = await task.value
-        guard !Task.isCancelled, draft == nil else { return }
+        // The inner Task is unstructured, so forward cancellation to it explicitly.
+        let outcome = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
         suggestionTask = nil
         findingSuggestions = false
-        onOutcome(outcome)
+        guard !Task.isCancelled, draft == nil else { return }
+        // Only a real proposal is cached: a .noModel failure (cancelled, timeout) retries on the next open.
+        if case .proposal = outcome {
+            onOutcome(outcome)
+        }
         buildDraft(outcome: outcome)
     }
 

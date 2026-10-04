@@ -130,7 +130,7 @@ extension ConfirmDraft {
             $0.templateID == FilingTemplates.when.id
         }!
         let whenQuestion = whenIndex.map { questions[$0] } ?? fallbackWhen
-        let followUps = questions.enumerated().compactMap { index, question in
+        let followUps = questions.enumerated().compactMap { (index, question) -> FollowUpRow? in
             if let whenIndex, index == whenIndex { return nil }
             return FollowUpRow(id: makeID(), question: question)
         }

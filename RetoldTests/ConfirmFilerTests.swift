@@ -598,6 +598,15 @@ final class ConfirmFilerTests: XCTestCase {
             periods: [PeriodRef(id: period.id, title: period.title, sortOrder: period.sortOrder)]
         )
 
+        // Non-vacuous: the chips and the period suggestion really were offered.
+        XCTAssertNotNil(draft.titleChip)
+        XCTAssertNotNil(draft.suggestedPeriod)
+        XCTAssertFalse(draft.people.isEmpty)
+        XCTAssertFalse(draft.places.isEmpty)
+        let liveTemplateIDs = draft.followUps.filter { draft.isLive($0) }.map(\.question.templateID)
+        XCTAssertFalse(liveTemplateIDs.contains(FilingTemplates.who.id))
+        XCTAssertFalse(liveTemplateIDs.contains(FilingTemplates.sensoryPlace.id))
+
         let episode = try ConfirmFiler.file(draft, capture: capture, in: context, now: now).episode
 
         XCTAssertNil(episode.period)
@@ -646,6 +655,16 @@ final class ConfirmFilerTests: XCTestCase {
         for string in persisted {
             XCTAssertTrue(allowed.contains(string), "unexpected persisted string: \(string)")
         }
+        // Exact rows: the matched chips reused the existing entities; only the typed person and the
+        // typed period are new.
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Person>()), 2)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Place>()), 1)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Period>()), 1)
+        XCTAssertTrue(result.episode.people.contains { $0.id == existingPerson.id })
+        XCTAssertEqual(result.episode.place?.id, existingPlace.id)
+        // The excerpt is the transcript's own words; nothing was rejected, so nothing was logged.
+        XCTAssertEqual(result.episode.excerpt, try XCTUnwrap(capture.completedTranscript).excerpt)
+        XCTAssertTrue(capture.rejectedProposals.isEmpty)
     }
 
     func testWall4NothingProposedPersisted() throws {
