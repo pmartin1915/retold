@@ -808,3 +808,86 @@ extension QuestionEngineTests {
         XCTAssertEqual(QuestionEngine.recentChannels(from: questions), [.open, .people])
     }
 }
+
+// MARK: (o) the empty-period opener (R5)
+
+@MainActor
+extension QuestionEngineTests {
+    func testEmptyPeriodOffersTitleOpener() {
+        let state = PeriodState(episodeCount: 0, asks: [],
+                                titleFill: PeriodTitleFill.fixture("High school"))
+        let offers = QuestionEngine.queue(for: state)
+        XCTAssertEqual(offers.count, 1)
+        XCTAssertEqual(offers[0].question.templateID, "period.slot")
+        XCTAssertTrue(offers[0].question.text.contains("High school"), offers[0].question.text)
+        XCTAssertNil(offers[0].existingQuestionID)
+    }
+
+    func testEmptyPeriodWithoutFillOffersNothing() {
+        let state = PeriodState(episodeCount: 0, asks: [])
+        XCTAssertTrue(QuestionEngine.queue(for: state).isEmpty)
+    }
+
+    func testEmptyPeriodReusesExistingOpenOpener() {
+        let openerID = UUID()
+        let state = PeriodState(episodeCount: 0, asks: [
+            askRecord("period.slot", .period, status: .open, id: openerID),
+        ], titleFill: PeriodTitleFill.fixture("High school"))
+        let offer = QuestionEngine.queue(for: state).first
+        XCTAssertEqual(offer?.existingQuestionID, openerID)
+    }
+
+    func testAnsweredOpenerIsNotReoffered() {
+        let state = PeriodState(episodeCount: 0, asks: [
+            askRecord("period.slot", .period, status: .answered),
+        ], titleFill: PeriodTitleFill.fixture("High school"))
+        XCTAssertTrue(QuestionEngine.queue(for: state).isEmpty)
+    }
+
+    func testRetiredOpenerIsNotReoffered() {
+        let state = PeriodState(episodeCount: 0, asks: [
+            askRecord("period.slot", .period, status: .retired),
+        ], titleFill: PeriodTitleFill.fixture("High school"))
+        XCTAssertTrue(QuestionEngine.queue(for: state).isEmpty)
+    }
+
+    func testOpenerUsesCurrentTitle() {
+        let openerID = UUID()
+        let state = PeriodState(episodeCount: 0, asks: [
+            askRecord("period.slot", .period, status: .open, id: openerID),
+        ], titleFill: PeriodTitleFill.fixture("College"))
+        let offer = QuestionEngine.queue(for: state).first
+        XCTAssertTrue(offer?.question.text.contains("College") == true)
+        XCTAssertEqual(offer?.existingQuestionID, openerID)
+    }
+
+    func testPeriodWithEpisodeDoesNotOfferOpener() {
+        let state = PeriodState(episodeCount: 1, asks: [],
+                                titleFill: PeriodTitleFill.fixture("High school"))
+        XCTAssertEqual(
+            QuestionEngine.queue(for: state).map(\.question.templateID),
+            ["period.else", "period.who", "period.where"]
+        )
+    }
+
+    func testRetiredOpenerDoesNotSilencePeriodCues() {
+        let state = PeriodState(episodeCount: 1, asks: [
+            askRecord("period.slot", .period, status: .retired),
+        ], titleFill: PeriodTitleFill.fixture("High school"))
+        XCTAssertEqual(
+            QuestionEngine.queue(for: state).map(\.question.templateID),
+            ["period.else", "period.who", "period.where"]
+        )
+    }
+
+    func testPeriodStateAdapterCarriesTitleFill() throws {
+        let container = try RetoldSchema.makeInMemoryContainer()
+        let context = container.mainContext
+        let period = Period(title: "High school", sortOrder: 0)
+        context.insert(period)
+        try context.save()
+
+        let state = PeriodState(period: period, questions: [])
+        XCTAssertEqual(state.titleFill?.text, "High school")
+    }
+}

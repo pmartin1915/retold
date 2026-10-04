@@ -6,6 +6,27 @@ enum TemplateAssemblyError: Error, Equatable {
     /// Every word of a slot was a function word (e.g. "I"), which would fill a who
     /// question with nothing to remember (PLAN section 6.2 follow-ups, R3 fix).
     case slotIsFunctionWord
+    /// assemble(_:periodTitle:) was given a template other than period.slot.
+    case notAPeriodTitleTemplate
+    /// The fill had no word left after trimming whitespace.
+    case emptySlot
+}
+
+/// A user-owned Period.title as a slot fill (R5, the one non-span fill). Only Period.titleFill
+/// below builds one; the fill is sealed like the verified-span path it parallels.
+struct PeriodTitleFill: Equatable, Sendable {
+    let text: String
+
+    fileprivate init(text: String) { self.text = text }
+
+    #if DEBUG
+    static func fixture(_ text: String) -> PeriodTitleFill { PeriodTitleFill(text: text) }
+    #endif
+}
+
+extension Period {
+    /// The period's current title as a slot fill.
+    var titleFill: PeriodTitleFill { PeriodTitleFill(text: title) }
 }
 
 /// A question built by Swift from a template and verified spans. Not yet a persisted `Question`.
@@ -55,12 +76,7 @@ enum TemplateAssembler {
             throw TemplateAssemblyError.slotCountMismatch
         }
         for slot in slots {
-            let keys = slot.text.split(whereSeparator: \.isWhitespace)
-                .map({ SpanVerifier.key(String($0)) })
-                .filter({ !$0.isEmpty })
-            if !keys.isEmpty && keys.allSatisfy({ functionWords.contains($0) }) {
-                throw TemplateAssemblyError.slotIsFunctionWord
-            }
+            try checkSlotText(slot.text)
         }
         if slots.count == 2 {
             let sameSegment = segments.contains { segment in
@@ -76,6 +92,42 @@ enum TemplateAssembler {
             text += span.text + pieces[index + 1]
         }
         return AssembledQuestion(text: text, templateID: template.id, slots: slots, cue: template.cue)
+    }
+
+    /// Fills period.slot with a period title — the one non-span fill (R5; the sealed
+    /// PeriodTitleFill is why only a user-owned title can take this path). Throws
+    /// .notAPeriodTitleTemplate unless template.id == "period.slot" AND template.slotCount == 1
+    /// (both checked before any indexing); .emptySlot if the title is empty after trimming
+    /// whitespace and newlines; .slotIsFunctionWord under the same function-word rule as span
+    /// slots. Otherwise the text is the pattern with its single {slot} replaced by the
+    /// normalised title: each run of newlines becomes one space, then leading/trailing
+    /// whitespace is trimmed. Built by the same split-and-interleave as
+    /// assemble(_:slots:segments:), so a title containing "{slot}" is never re-expanded. The
+    /// result has slots == [] (no transcript span is involved) and cue .period.
+    static func assemble(_ template: QuestionTemplate, periodTitle fill: PeriodTitleFill) throws -> AssembledQuestion {
+        guard template.id == "period.slot", template.slotCount == 1 else {
+            throw TemplateAssemblyError.notAPeriodTitleTemplate
+        }
+        let normalised = fill.text
+            .split(whereSeparator: { $0.isNewline })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard !normalised.isEmpty else { throw TemplateAssemblyError.emptySlot }
+        try checkSlotText(normalised)
+        let pieces = template.pattern.components(separatedBy: QuestionTemplate.slotMarker)
+        let text = pieces[0] + normalised + pieces[1]
+        return AssembledQuestion(text: text, templateID: template.id, slots: [], cue: template.cue)
+    }
+
+    /// The function-word guard shared by both assemble entry points: a fill whose every
+    /// word is a function word (e.g. "That") says nothing a question could hang on.
+    private static func checkSlotText(_ text: String) throws {
+        let keys = text.split(whereSeparator: \.isWhitespace)
+            .map({ SpanVerifier.key(String($0)) })
+            .filter({ !$0.isEmpty })
+        if !keys.isEmpty && keys.allSatisfy({ functionWords.contains($0) }) {
+            throw TemplateAssemblyError.slotIsFunctionWord
+        }
     }
 
     /// The follow-up questions for a merged extract, in offer order: the open question first

@@ -15,3 +15,9 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-03 (Sol R2 audit, finding 7, dormant): the two-slot check should require the same capture id and segment, not just timestamps. Fix it before the first two-slot template.
 - 2026-10-03 (R4.5, sealed): `.user`-origin questions have no production constructor. Add `Question.init(typedByUser:)` when a PLAN feature needs one; decide its `templateID` then. Do not invent one now.
 - 2026-10-03 (R4.5, sealed): the excerpt has no stored link to its capture; `setExcerpt` checks membership at write time only. Storing the source capture id is a schema change, so it belongs at the V1 freeze.
+- 2026-10-04 (R5): per-default-period deck copy (PLAN §8, 20 questions × 5 cue levels per period) needs a stable key per seeded period, since `Period.title` is editable. A stored field: add it at the V1 freeze; author the copy with a lint run and Kimi readability pass.
+- 2026-10-04 (R5): typed-entity fills for people templates (a person typed in manual filing). R5 seals only `PeriodTitleFill`; add a sibling fill when the no-model person page is built (R7).
+- 2026-10-04 (R5): a persisted `period.slot` question keeps the title it was built with; offers and the export re-assemble from the current title. R7's views must show `EngineOffer.question.text`.
+- 2026-10-04 (R5 spec review, copy nit): seeded titles read oddly mid-sentence in the opener ("When you think of The years after school, ..."). Lowercase a leading article at fill time, or reword the seeds; a copy decision, not R5.
+- 2026-10-04 (R5): theme questions have no period; `NudgePicker` has only `.period`/`.unfiled` keys. R7's nudge adapter decides where they go (a `.theme` key, or exclusion).
+- 2026-10-04 (R5): zip the export folder for the share sheet (R7, with the UI).
