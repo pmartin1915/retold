@@ -42,8 +42,6 @@ enum AppCopy {
 
     /// R7a: heading for captures that have not been filed.
     static let unfiledHeader = "Unfiled"
-    /// R7a: heading for filed episodes.
-    static let filedHeader = "Filed"
     /// R7a: state shown while a capture is being transcribed.
     static let transcribingLabel = "Transcribing…"
     /// R7a: state shown when a capture has no transcript.
@@ -107,6 +105,51 @@ enum AppCopy {
     /// R7a: explanation of where suggestions are generated.
     static let suggestionsFootnote = "Suggestions are made on this iPhone."
 
+    /// R7b: title shown for an episode whose title is not confirmed.
+    static let untitled = "Untitled"
+    /// R7b: title of the Places list.
+    static let placesTitle = "Places"
+    /// R7b: title of the Themes page.
+    static let themesTitle = "Themes"
+    /// R7b: title of the Periods page.
+    static let periodsTitle = "Periods"
+    /// R7b: action for adding a period.
+    static let addPeriod = "Add a period"
+    /// R7b: action for renaming a period.
+    static let renamePeriod = "Rename"
+    /// R7b: footnote shown when a period title is a duplicate.
+    static let duplicatePeriod = "There is already a period with that name."
+    /// R7b: save action in the period sheet.
+    static let saveButton = "Save"
+    /// R7b: cancel action in the period sheet.
+    static let cancelButton = "Cancel"
+    /// R7b: heading for the open questions on a page.
+    static let questionsHeader = "Questions"
+    /// R7b: action for answering a question by recording.
+    static let answerNow = "Answer now"
+    /// R7b: heading for an episode's recordings.
+    static let recordingsHeader = "Recordings"
+    /// R7b: state shown when a recording has no transcript.
+    static let noTranscript = "No transcript"
+    /// R7b: state shown when a recording's audio file is gone.
+    static let audioMissing = "The recording file is missing."
+    /// R7b: play action.
+    static let playButton = "Play"
+    /// R7b: pause action.
+    static let pauseButton = "Pause"
+    /// R7b: recorder label while a capture answers a question.
+    static let answeringLabel = "Answering"
+    /// R7b: settings action that builds the export.
+    static let exportButton = "Export everything"
+    /// R7b: fixed line shown beside the export action.
+    static let exportNote = "Recordings may name other people."
+    /// R7b: progress copy while the export is built.
+    static let preparingExport = "Preparing the export…"
+    /// R7b: footnote shown when the export fails.
+    static let exportFailed = "The export could not be made. Try again."
+    /// R7b: label of the share link for a finished export.
+    static let shareExport = "Share the export"
+
     static let all: [String] = [
         newerPhoneReason,
         appleIntelligenceOffReason,
@@ -126,7 +169,6 @@ enum AppCopy {
         homeTitle,
         lengthWarning,
         unfiledHeader,
-        filedHeader,
         transcribingLabel,
         noTranscriptLabel,
         fileButton,
@@ -158,5 +200,27 @@ enum AppCopy {
         settingsTitle,
         suggestionsToggle,
         suggestionsFootnote,
+        untitled,
+        placesTitle,
+        themesTitle,
+        periodsTitle,
+        addPeriod,
+        renamePeriod,
+        duplicatePeriod,
+        saveButton,
+        cancelButton,
+        questionsHeader,
+        answerNow,
+        recordingsHeader,
+        noTranscript,
+        audioMissing,
+        playButton,
+        pauseButton,
+        answeringLabel,
+        exportButton,
+        exportNote,
+        preparingExport,
+        exportFailed,
+        shareExport,
     ]
 }

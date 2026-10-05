@@ -37,8 +37,14 @@ private struct RootView: View {
     let services: LiveCapture.LiveCaptureServices
     @Environment(\.scenePhase) private var scenePhase
     @State private var autoPresentID: UUID?
+    @State private var playback: AudioPlayback
 
     private var coordinator: CaptureCoordinator { services.coordinator }
+
+    init(services: LiveCapture.LiveCaptureServices) {
+        self.services = services
+        _playback = State(initialValue: AudioPlayback(files: services.coordinator.files))
+    }
 
     var body: some View {
         Group {
@@ -55,11 +61,25 @@ private struct RootView: View {
                 }
             }
         }
+        .environment(playback)
+        .environment(coordinator)
         .modelContainer(services.container)
-        .task { await coordinator.run() }
+        .task {
+            // The export zip holds the whole library unencrypted in tmp: clear any leftover.
+            ExportArchiver.sweep(workDirectory: ExportArchiver.defaultWorkDirectory)
+            await coordinator.run()
+        }
         .onChange(of: coordinator.state.phase) { oldPhase, newPhase in
             if case .stopping(let id, _) = oldPhase, case .idle = newPhase {
                 autoPresentID = id
+            }
+            // Playback yields to the recorder (covers the Control and the Action button). The
+            // recorder's own setCategory supersedes playback, so the session is not deactivated.
+            switch newPhase {
+            case .idle, .blocked:
+                break
+            default:
+                playback.stop(deactivateSession: false)
             }
         }
         // initial: true -- RootView appears only after the services exist, when the scene is already
