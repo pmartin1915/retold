@@ -787,6 +787,7 @@ and pushed early in the file order (§10), before the screens.
    the app's first destructive action. Boss recommendation: 1.1. Nothing is lost by keeping a
    recording, and a delete that also removes the audio needs its own small spec and a confirmation.
    If Perry wants it in 1.0, it becomes R7c: unfiled captures only, swipe to delete, one confirmation.
+   **Decided 2026-10-04 (Perry): in 1.0.** R7c, scoped as above, needs its own small spec before build.
 
 ## 12. `ai/IDEAS.md` additions (append-only, in the R7b PR)
 
