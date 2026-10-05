@@ -346,45 +346,63 @@ final class CaptureCoordinator {
 
     private func performOneFilePass() async {
         guard state.protectedDataAvailable else { return }
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
-        guard let captures = try? context.fetch(FetchDescriptor<Capture>()) else { return }
-        let candidates = captures
+        let scan = ModelContext(container)
+        guard let captures = try? scan.fetch(FetchDescriptor<Capture>()) else { return }
+        let candidateIDs = captures
             .filter { [TranscriptionStatus.live, .pending, .fromFile].contains($0.transcriptionStatus) }
             .filter { $0.id != activeCaptureID }
+            .filter { $0.corrections.isEmpty }               // correction indices point at current segments
             .filter { FileManager.default.fileExists(atPath: files.audioURL(for: $0.id).path) }
-        for capture in candidates {
+            .map(\.id)
+        for captureID in candidateIDs {
             guard state.protectedDataAvailable else { return }  // re-checked after every await
-            if !capture.corrections.isEmpty { continue }     // correction indices point at current segments
             let route = await routeProvider()
             guard state.protectedDataAvailable else { return }
             if case .audioOnly = route { continue }          // stays .live for a later pass
-            let current = capture.transcript
+            var segments: [TranscriptSegment]? = []
             do {
-                try capture.updateTranscript(current, status: .fromFile)
-                var segments: [TranscriptSegment] = []
                 for try await segment in fileTranscriber.transcribe(
-                    audioURL: files.audioURL(for: capture.id), route: route
+                    audioURL: files.audioURL(for: captureID), route: route
                 ) {
-                    segments.append(segment)
+                    segments?.append(segment)
                 }
-                if segments.isEmpty {
-                    if current.isEmpty {
-                        try capture.completeTranscript([])   // silence is a complete transcript
-                    } else {
-                        try capture.updateTranscript(current, status: .failed)
-                    }
-                } else {
-                    try capture.completeTranscript(segments) // the file is authoritative
-                }
-                // The phone may have locked during the transcription: never touch the store then.
-                guard state.protectedDataAvailable else { context.rollback(); return }
-                try context.save()
             } catch {
-                guard state.protectedDataAvailable else { context.rollback(); return }
-                try? capture.updateTranscript(current, status: .failed)  // keep the partial
-                try? context.save()
+                segments = nil
             }
+            // The phone may have locked during the transcription: never touch the store then.
+            guard state.protectedDataAvailable else { return }
+            Self.applyFilePassResult(captureID: captureID, segments: segments, in: container)
+        }
+    }
+
+    /// Writes one file-pass result to the capture, fetched in a fresh context with no suspension
+    /// between the fetch and the save. A capture object held across the transcription's awaits would
+    /// be a stale snapshot, and saving it would overwrite a main-context write made meanwhile, such as
+    /// R7b's AnswerAttacher setting capture.episode. Every writer is on the main actor, so nothing
+    /// interleaves here. `segments` nil = the transcription threw. Does nothing unless the capture is
+    /// still .live, .pending or .fromFile with no corrections.
+    static func applyFilePassResult(captureID: UUID, segments: [TranscriptSegment]?, in container: ModelContainer) {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        let wantedID = captureID
+        var descriptor = FetchDescriptor<Capture>(predicate: #Predicate { $0.id == wantedID })
+        descriptor.fetchLimit = 1
+        guard let capture = (try? context.fetch(descriptor))?.first,
+              [TranscriptionStatus.live, .pending, .fromFile].contains(capture.transcriptionStatus),
+              capture.corrections.isEmpty
+        else { return }
+        let current = capture.transcript
+        do {
+            if let segments, !segments.isEmpty {
+                try capture.completeTranscript(segments)     // the file is authoritative
+            } else if segments != nil, current.isEmpty {
+                try capture.completeTranscript([])           // silence is a complete transcript
+            } else {
+                try capture.updateTranscript(current, status: .failed)  // keep the partial
+            }
+            try context.save()
+        } catch {
+            context.rollback()
         }
     }
 }

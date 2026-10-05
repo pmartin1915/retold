@@ -284,19 +284,17 @@ final class AnswerAttacherTests: XCTestCase {
         let capture = try answerCapture(to: question.id)
         let captureID = capture.id
 
-        // 1. The file pass's context fetches the capture before the attach.
-        let filePass = ModelContext(container)
-        filePass.autosaveEnabled = false
-        let stale = try XCTUnwrap(
-            try filePass.fetch(FetchDescriptor<Capture>()).first { $0.id == captureID })
-        XCTAssertNil(stale.episode)
+        // 1. The file pass's scan sees the capture unattached, then transcribes (awaits).
+        let scan = ModelContext(container)
+        XCTAssertNil(try XCTUnwrap(try scan.fetch(FetchDescriptor<Capture>()).first { $0.id == captureID }).episode)
 
-        // 2. The main context attaches and saves.
+        // 2. Meanwhile the main context attaches and saves.
         try AnswerAttacher.attachPending(in: context)
 
-        // 3. The file pass completes the transcript and saves from its stale snapshot.
-        try stale.completeTranscript(words("and the dog was there too"))
-        try filePass.save()
+        // 3. The file pass writes its result. A stale snapshot saved here wiped capture.episode
+        //    (CI run 37249014918); the result is applied to a capture fetched fresh instead.
+        CaptureCoordinator.applyFilePassResult(
+            captureID: captureID, segments: words("and the dog was there too"), in: container)
 
         // 4. After a reopen, the capture has both.
         let reopened = ModelContext(container)
