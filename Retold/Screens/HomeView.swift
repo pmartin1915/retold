@@ -19,6 +19,9 @@ struct HomeView: View {
     @State private var selectedAnsweredPeriodID: UUID?
     @State private var showingSettings = false
     @State private var outcomes: [UUID: FilingOutcome] = [:]
+    // The id, never a Capture: reading a property of a deleted SwiftData model can trap.
+    @State private var pendingDeleteID: UUID?
+    @State private var deleteFailed = false
 
     private var sections: [TimelineSection] {
         Timeline.sections(
@@ -44,6 +47,10 @@ struct HomeView: View {
                 Section(AppCopy.unfiledHeader) {
                     ForEach(unfiledCaptures) { capture in
                         unfiledRow(capture)
+                            // Not a full swipe: a full swipe must never delete without the dialog.
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(AppCopy.deleteAction, role: .destructive) { pendingDeleteID = capture.id }
+                            }
                     }
                 }
                 Section {
@@ -99,6 +106,19 @@ struct HomeView: View {
             ) { outcome in
                 outcomes[capture.id] = outcome
             }
+        }
+        .confirmationDialog(
+            AppCopy.deleteRecordingTitle,
+            isPresented: Binding(get: { pendingDeleteID != nil }, set: { if !$0 { pendingDeleteID = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingDeleteID
+        ) { id in
+            Button(AppCopy.deleteRecordingConfirm, role: .destructive) { deleteCapture(id) }
+        } message: { _ in
+            Text(AppCopy.deleteRecordingMessage)
+        }
+        .alert(AppCopy.deleteFailed, isPresented: $deleteFailed) {
+            Button("OK") {}
         }
         .onAppear {
             // Order matters: seed periods, then attach answers, then auto-present. Home is created
@@ -157,6 +177,23 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+
+    @MainActor
+    private func deleteCapture(_ id: UUID) {
+        do {
+            try CaptureDeleter.delete(
+                captureID: id,
+                activeCaptureID: coordinator.activeCaptureID,
+                files: coordinator.files,
+                in: modelContext.container
+            )
+            outcomes[id] = nil
+        } catch CaptureDeleteError.filed {
+            // Attached since the swipe: the row has already left Unfiled.
+        } catch {
+            deleteFailed = true
+        }
     }
 
     /// Computes the answered period once per presentation, never in the sheet closure.
