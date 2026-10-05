@@ -51,3 +51,5 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-04 (R7b, Sonnet review cut): reordering periods is 1.1. `PeriodEditor.move` should sort by `(sortOrder, id.uuidString)`, apply `Array.move`, and rewrite `sortOrder` contiguously.
 - 2026-10-04 (R7b): after Answer now, the user lands on Home's root, not the page they answered from. Restoring the navigation path is 1.1.
 - 2026-10-04 (R7b): a short answer (under 2 s) attaches but leaves its question open. Tune the threshold after device use.
+- 2026-10-04 (R7c): add a Delete button inside `ConfirmView`, so the user can delete a botched recording from the screen where they notice it. 1.0 has swipe-only on Home.
+- 2026-10-04 (R7c): add deleting filed captures and episodes. These need cascade rules for Details, Questions and excerpts that quote the capture. 1.1 at the earliest.

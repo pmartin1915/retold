@@ -149,6 +149,16 @@ enum AppCopy {
     static let exportFailed = "The export could not be made. Try again."
     /// R7b: label of the share link for a finished export.
     static let shareExport = "Share the export"
+    /// R7c: swipe action that deletes an unfiled recording.
+    static let deleteAction = "Delete"
+    /// R7c: title of the delete confirmation.
+    static let deleteRecordingTitle = "Delete this recording?"
+    /// R7c: message of the delete confirmation.
+    static let deleteRecordingMessage = "The recording and its transcript will be removed from this phone. This can't be undone."
+    /// R7c: label of the confirming delete button.
+    static let deleteRecordingConfirm = "Delete recording"
+    /// R7c: alert shown when a delete fails.
+    static let deleteFailed = "The recording couldn't be deleted. Try again."
 
     static let all: [String] = [
         newerPhoneReason,
@@ -222,5 +232,10 @@ enum AppCopy {
         preparingExport,
         exportFailed,
         shareExport,
+        deleteAction,
+        deleteRecordingTitle,
+        deleteRecordingMessage,
+        deleteRecordingConfirm,
+        deleteFailed,
     ]
 }

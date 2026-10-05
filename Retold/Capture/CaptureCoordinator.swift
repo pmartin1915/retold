@@ -96,7 +96,7 @@ final class CaptureCoordinator {
     }
 
     /// The capture ID of the active phase, if any (excluded from import and the file pass).
-    private var activeCaptureID: UUID? {
+    var activeCaptureID: UUID? {
         switch state.phase {
         case .starting(let id, _), .recording(let id), .interrupted(let id),
              .stopping(let id, _), .aborting(let id):
