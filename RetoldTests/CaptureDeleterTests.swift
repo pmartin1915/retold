@@ -107,6 +107,18 @@ final class CaptureDeleterTests: XCTestCase {
 
         XCTAssertNotNil(try fetchCapture(id, in: container))
         XCTAssertTrue(exists(stubs.audio))
+
+        // The order is what keeps this safe: had the record gone first, pass 2 would adopt the audio.
+        let importer = JournalImporter(files: files, durationProbe: MockDurationProbe(),
+                                       protector: MockFileProtector())
+        let report = importer.importAll(into: container, excluding: nil)
+        XCTAssertTrue(report.adoptedOrphans.isEmpty)
+        XCTAssertTrue(report.imported.isEmpty)
+        let cid = id
+        let all = try ModelContext(container).fetch(
+            FetchDescriptor<Capture>(predicate: #Predicate { $0.id == cid })
+        )
+        XCTAssertEqual(all.count, 1)
     }
 
     func testJournalRemovalFailureTouchesNothingAfter() throws {
@@ -176,6 +188,7 @@ final class CaptureDeleterTests: XCTestCase {
         let episode = Episode(typedTitle: "The porch")
         container.mainContext.insert(episode)
         episode.captures.append(capture)
+        XCTAssertNotNil(capture.episode)
         try container.mainContext.save()
         let stubs = try stubFiles(files, id: id)
 
