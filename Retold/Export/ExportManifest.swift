@@ -80,16 +80,6 @@ extension ExportLibrary {
         let periodIDs = Set(periods.map(\.id))
         let episodeIDs = Set(episodes.map(\.id))
 
-        func exportText(_ question: Question) -> String {
-            guard question.templateID == "period.slot", let period = question.period else {
-                return question.text
-            }
-            guard let template = QuestionDeck.template(id: "period.slot"),
-                  let assembled = try? TemplateAssembler.assemble(template, periodTitle: period.titleFill)
-            else { return question.text }
-            return assembled.text
-        }
-
         let openQuestions = questions.filter {
             ($0.status == .open || $0.status == .skipped) && $0.templateID != "broad.open"
         }
@@ -97,7 +87,7 @@ extension ExportLibrary {
         var periodQuestions: [UUID: [ExportQuestion]] = [:]
         var otherQuestions: [ExportQuestion] = []
         for question in openQuestions {
-            let export = ExportQuestion(id: question.id, text: exportText(question), createdAt: question.createdAt)
+            let export = ExportQuestion(id: question.id, text: QuestionText.display(question), createdAt: question.createdAt)
             if let episode = question.episode {
                 if episodeIDs.contains(episode.id) {
                     episodeQuestions[episode.id, default: []].append(export)

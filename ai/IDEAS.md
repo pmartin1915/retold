@@ -42,3 +42,12 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-04 (Perry decision, R7 spec section 11): nudges (notification permission, scheduling, NudgePicker adapter, theme-question key) are 1.1.
 - 2026-10-04 (Perry decision): transcript corrections UI is 1.1, and with it Sol R2 finding 5's retire-on-correction and the R6 re-transcription choice.
 - 2026-10-04 (Perry decision): 1.0 ships free, no in-app purchase. The PLAN section 9 one-time unlock lands in 1.1; when it does, grandfather early users or set the capture cap generously (a new cap reads as a takeaway).
+- 2026-10-04 (R7b): an answer to an episode's question attaches directly and skips the filing pipeline, so people and places spoken in an answer are not offered. A 1.1 option: run the pipeline on the attached answer, and offer only chips that are new to the episode.
+- 2026-10-04 (R7b): an episode whose first capture had no words keeps an empty excerpt after an answer attaches. Set it from the first worded capture, which needs a rule for which capture "first" is.
+- 2026-10-04 (R7b): answering the when question after filing (the wheel on the episode page) is 1.1.
+- 2026-10-04 (R7b): the export ignores ExportWriter's skipped-audio list. Surface a count if device use shows missing files.
+- 2026-10-04 (R7b): the theme entry sits on Home, not on the period page, because theme questions have no period.
+- 2026-10-04 (R7b): deleting captures, episodes and periods is not in 1.0 (§11 item 1, pending Perry).
+- 2026-10-04 (R7b, Sonnet review cut): reordering periods is 1.1. `PeriodEditor.move` should sort by `(sortOrder, id.uuidString)`, apply `Array.move`, and rewrite `sortOrder` contiguously.
+- 2026-10-04 (R7b): after Answer now, the user lands on Home's root, not the page they answered from. Restoring the navigation path is 1.1.
+- 2026-10-04 (R7b): a short answer (under 2 s) attaches but leaves its question open. Tune the threshold after device use.

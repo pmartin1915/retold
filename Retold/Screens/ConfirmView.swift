@@ -6,6 +6,8 @@ struct ConfirmView: View {
     let capture: Capture
     let row: UnfiledRow
     let cachedOutcome: FilingOutcome?
+    /// R7b: the period of the question this capture answers, if any; pre-picked in the draft.
+    let answeredPeriodID: UUID?
     let onOutcome: (FilingOutcome) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -432,7 +434,7 @@ struct ConfirmView: View {
 
     private func buildDraft(outcome: FilingOutcome?) {
         guard draft == nil else { return }
-        draft = ConfirmDraft.make(
+        var built = ConfirmDraft.make(
             captureID: capture.id,
             outcome: outcome,
             periods: periods.map {
@@ -441,6 +443,11 @@ struct ConfirmView: View {
             people: people.map { EntityRef(id: $0.id, name: $0.name) },
             places: places.map { EntityRef(id: $0.id, name: $0.name) }
         )
+        // The user chose to answer this period's question: a user act, not a suggestion.
+        if let id = answeredPeriodID, periods.contains(where: { $0.id == id }) {
+            built.pick(.existing(id))
+        }
+        draft = built
     }
 
     private func file() {
