@@ -6,7 +6,7 @@ final class ExportArchiverTests: XCTestCase {
     private var root: URL!
     private var audioDirectory: URL { root.appendingPathComponent("audio", isDirectory: true) }
     private var workDirectory: URL { root.appendingPathComponent("work", isDirectory: true) }
-    private let name = "Retold export 2026-10-04"
+    private let exportName = "Retold export 2026-10-04"
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory
@@ -37,7 +37,7 @@ final class ExportArchiverTests: XCTestCase {
     func testArchiveIsZip() throws {
         try makeAudio()
         let url = try ExportArchiver.makeArchive(
-            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: name)
+            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: exportName)
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         let data = try Data(contentsOf: url)
         XCTAssertGreaterThan(data.count, 0)
@@ -47,8 +47,8 @@ final class ExportArchiverTests: XCTestCase {
     func testArchiveNamed() throws {
         try makeAudio()
         let url = try ExportArchiver.makeArchive(
-            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: name)
-        XCTAssertEqual(url.lastPathComponent, "\(name).zip")
+            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: exportName)
+        XCTAssertEqual(url.lastPathComponent, "\(exportName).zip")
         XCTAssertEqual(url.deletingLastPathComponent().standardizedFileURL.path,
                        workDirectory.standardizedFileURL.path)
     }
@@ -56,9 +56,9 @@ final class ExportArchiverTests: XCTestCase {
     func testWorkFolderRemoved() throws {
         try makeAudio()
         _ = try ExportArchiver.makeArchive(
-            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: name)
+            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: exportName)
         XCTAssertFalse(FileManager.default.fileExists(
-            atPath: workDirectory.appendingPathComponent(name).path))
+            atPath: workDirectory.appendingPathComponent(exportName).path))
     }
 
     func testSecondRunReplacesFirst() throws {
@@ -74,14 +74,14 @@ final class ExportArchiverTests: XCTestCase {
         // No audio file is written: the manifest still lists it.
         let url = try ExportArchiver.makeArchive(
             manifest(audioName: "gone.m4a"),
-            audioDirectory: audioDirectory, workDirectory: workDirectory, name: name)
+            audioDirectory: audioDirectory, workDirectory: workDirectory, name: exportName)
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
     }
 
     func testSweepRemovesWorkDirectory() throws {
         try makeAudio()
         _ = try ExportArchiver.makeArchive(
-            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: name)
+            manifest(), audioDirectory: audioDirectory, workDirectory: workDirectory, name: exportName)
         XCTAssertTrue(FileManager.default.fileExists(atPath: workDirectory.path))
         ExportArchiver.sweep(workDirectory: workDirectory)
         XCTAssertFalse(FileManager.default.fileExists(atPath: workDirectory.path))
