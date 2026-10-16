@@ -1,23 +1,22 @@
 # STATE: retold (NOW)
 
-**Updated 2026-10-15.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
+**Updated 2026-10-16.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
 
 ## Critical path
-Retold 1.0 submit targets ~10-27 (Perry, 2026-10-04: both apps out in October; `dab59d2`). The code is feature-complete for 1.0 through R7c (main `aa83a12`, 479 tests green, run `37261654235`). What gates the submit is Perry: deploy the latest main to TestFlight, run the device sitting after 10-16, and finish submit prep. Owner: Perry; StoryCue (submit 10-16) has priority on his device time.
+Retold 1.0 submit targets ~10-27 (Perry, 2026-10-04: both apps out in October; `dab59d2`). The code is feature-complete for 1.0 through R7c (main `aa83a12`, 479 tests green, run `37261654235`). What gates the submit is Perry: run the device sitting (Sat 2026-10-17) on the TestFlight build, and finish submit prep. The latest main is on TestFlight (deploy run `38854452592`, 2026-10-16). Owner: Perry; StoryCue (submit 10-16) has priority on his device time.
 
 ## Live workstreams
 | Stream | State | Next |
 |---|---|---|
-| TestFlight | Last upload 1.0.0 (6.1) from `47d5edd`, deploy run `37255634221`. R7c (`ced7c7a`) is NOT on TestFlight: no deploy run since (checked 2026-10-15, `gh run list`) | Perry runs `gh workflow run deploy.yml --ref main -f upload=true` (auto-mode blocks Claude from dispatching) |
-| Device sitting | Not started (unverified, last seen 2026-10-04) | After 10-16, 16 Pro: R6 spec section 9, R7 spec section 10 step 5, R7B spec section 10 step 5, R7C spec section 8 |
+| TestFlight | R7c (`ced7c7a`) deployed to TestFlight 2026-10-16, run `38854452592` succeeded (previous upload 1.0.0 (6.1) from `47d5edd`, run `37255634221`) | None; device sitting next |
+| Device sitting | Sat 2026-10-17, on Perry To-Do calendar. Not started (unverified, last seen 2026-10-04) | 16 Pro: R6 spec section 9, R7 spec section 10 step 5, R7B spec section 10 step 5, R7C spec section 8 |
 | Submit prep | `docs/SUBMIT-KIT.md` draft `cb4c296` (listing, privacy label, review notes, policy) | Name availability, real icon (Gemini, in progress; unverified, last seen 2026-10-04), screenshots, publish martinapps.dev/retold privacy + support pages and the support email |
 | Audits owed | Kimi independent audits of `85e43e0` (R7a), `47d5edd` (R7b), `ced7c7a` (R7c); Kimi was weekly-capped 2026-10-04 (unverified now) | Run when Kimi resets. Sol was weekly-limited to 2026-10-09 (since lapsed, unverified) |
 | 1.1 backlog | Nudges, transcript corrections, one-time unlock, Live Activity, period reorder are all 1.1 (Perry, 2026-10-04, `393c459`); 1.0 ships free | Not started; items accumulate in `ai/IDEAS.md` |
 
 ## Waiting on Perry
-1. Run the TestFlight deploy for `ced7c7a` (above).
-2. Device sitting after 10-16 on that build.
-3. Submit prep open items in `docs/SUBMIT-KIT.md`: name availability, icon, screenshots, privacy/support pages, support email, final wording and price.
+1. Device sitting Sat 2026-10-17 on the `ced7c7a` TestFlight build (on Perry To-Do calendar).
+2. Submit prep open items in `docs/SUBMIT-KIT.md`: name availability, icon, screenshots, privacy/support pages, support email, final wording and price (deferred to 2026-10-26, sitting 2026-10-16).
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
