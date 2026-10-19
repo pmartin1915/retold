@@ -16,7 +16,7 @@ Retold 1.0 submit targets ~10-27 (Perry, 2026-10-04: both apps out in October; `
 
 ## Waiting on Perry
 1. ~~Device sitting~~ done per Perry 2026-10-19 ("It looks good"); remove this line at the next NOW-page edit.
-2. Submit prep open items in `docs/SUBMIT-KIT.md`: name availability, icon, screenshots, privacy/support pages, support email, final wording and price (deferred to 2026-10-26, sitting 2026-10-16).
+2. Submit prep open items in `docs/SUBMIT-KIT.md`: name availability, icon, screenshots, privacy/support pages, support email, final wording and price. Undated: Perry said "later" at the 2026-10-16 sitting, and the 10-26 date was model-set and removed (Perry 2026-10-19).
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
