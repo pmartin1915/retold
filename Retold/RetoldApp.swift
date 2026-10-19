@@ -22,7 +22,17 @@ struct RetoldApp: App {
             .task {
                 guard services == nil, !startupFailed else { return }
                 do {
+                    #if DEBUG
+                    // `-RetoldDemo` (ScreenshotTests only) launches the seeded mock demo; everything
+                    // else is production. The Release build compiles only the production line below.
+                    if DemoMode.isActive {
+                        services = try DemoMode.makeServices()
+                    } else {
+                        services = try LiveCapture.makeCoordinator()
+                    }
+                    #else
                     services = try LiveCapture.makeCoordinator()
+                    #endif
                 } catch {
                     startupFailed = true
                 }

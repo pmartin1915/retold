@@ -110,6 +110,26 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
 
+  RetoldUITests:
+    # App Store screenshot lane. UI tests live in their own scheme (RetoldScreenshots) so the
+    # normal Build & Test lane never runs them.
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - RetoldUITests
+    dependencies:
+      - target: Retold
+    settings:
+      base:
+        PRODUCT_NAME: RetoldUITests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.pmartin1915.retold.uitests
+        TEST_TARGET_NAME: Retold
+    info:
+      path: RetoldUITests/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+
 schemes:
   Retold:
     build:
@@ -122,3 +142,14 @@ schemes:
       config: Debug
     archive:
       config: Release
+
+  RetoldScreenshots:
+    build:
+      targets:
+        Retold: all
+        RetoldUITests: all
+    test:
+      targets:
+        - RetoldUITests
+    run:
+      config: Debug

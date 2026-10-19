@@ -377,6 +377,22 @@ struct ConfirmView: View {
     @MainActor
     private func load() async {
         guard draft == nil else { return }
+        #if DEBUG
+        // `-RetoldDemo` only: a simulator has no Apple Intelligence, so the demo files through the
+        // production pipeline over a scripted model (DemoMode.filingPipeline). Without the
+        // argument this block does nothing; the Release build does not compile it.
+        if DemoMode.isActive {
+            mode = .model
+            if let transcript = capture.completedTranscript {
+                let outcome = await DemoMode.filingPipeline()
+                    .file(transcript, periodTitles: periods.map(\.title))
+                buildDraft(outcome: outcome)
+            } else {
+                buildDraft(outcome: nil)
+            }
+            return
+        }
+        #endif
         let selectedMode = FilingMode.select(
             availability: ModelAvailability.current,
             suggestionsOn: suggestionsOn
