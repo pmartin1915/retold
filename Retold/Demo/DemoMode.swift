@@ -211,9 +211,7 @@ final class DemoCaptureEngine: CaptureEngine, @unchecked Sendable {
     func resume(captureID: UUID) async {}
 
     func stop(captureID: UUID) async {
-        lock.lock()
-        let first = stopped.insert(captureID).inserted
-        lock.unlock()
+        let first = lock.withLock { stopped.insert(captureID).inserted }
         guard first else { return }
         continuation.yield(.recorder(.engineStopped(captureID: captureID, duration: 0)))
     }
