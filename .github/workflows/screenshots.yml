@@ -114,7 +114,7 @@ jobs:
         run: |
           xcrun simctl status_bar "$SIM_UDID" override \
             --time "9:41" \
-            --batteryState charged \
+            --batteryState discharging \
             --batteryLevel 100 \
             --cellularBars 4 \
             --wifiBars 3
