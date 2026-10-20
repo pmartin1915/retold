@@ -4,6 +4,7 @@
 Retold/Info.plist
 RetoldTests/Info.plist
 RetoldControls/Info.plist
+RetoldUITests/Info.plist
 xcuserdata/
 DerivedData/
 build/
