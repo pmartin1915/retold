@@ -10,13 +10,13 @@ Retold 1.0 submit targets ~10-27 (Perry, 2026-10-04: both apps out in October; `
 |---|---|---|
 | TestFlight | R7c (`ced7c7a`) deployed to TestFlight 2026-10-16, run `38854452592` succeeded (previous upload 1.0.0 (6.1) from `47d5edd`, run `37255634221`) | None; device sitting next |
 | Device sitting | Done: Perry reported "It looks good" at decision sitting 2026-10-19 (no per-check notes given) | Submit prep is next |
-| Submit prep | 2026-10-19: ASC listing filled (name Retold: Life Stories, Spoken, subtitle, categories, promo, description, keywords, support URL, copyright, review notes, contact, manual release, privacy label Data Not Collected published); martinapps.dev/retold support + privacy pages live (`7b38619` in martinapps-site); 6.9" screenshots uploaded (5, from PR #14 run 39344699743); icon + demo-mode screenshot pipeline in PR #14 (green, unmerged) | Perry merges PR #14, runs deploy so the build carries the real icon, then Claude attaches the build; age rating 4+, price Free, content rights still to set in ASC |
+| Submit prep | 2026-10-19: ASC listing filled (name Retold: Life Stories, Spoken, subtitle, categories, promo, description, keywords, support URL, copyright, review notes, contact, manual release, privacy label Data Not Collected published); martinapps.dev/retold support + privacy pages live (`7b38619` in martinapps-site); 6.9" screenshots uploaded (5, from PR #14 run 39344699743); icon + demo-mode screenshot pipeline merged as PR #14 (`14713ad`, 2026-10-19; screenshots re-shot without the charging bolt, run 39349600999) | Perry runs deploy.yml so the build carries the real icon, then Claude attaches the build; age rating 4+, price Free, content rights still to set in ASC |
 | Audits owed | Kimi independent audits of `85e43e0` (R7a), `47d5edd` (R7b), `ced7c7a` (R7c); Kimi was weekly-capped 2026-10-04 (unverified now) | Run when Kimi resets. Sol was weekly-limited to 2026-10-09 (since lapsed, unverified) |
 | 1.1 backlog | Nudges, transcript corrections, one-time unlock, Live Activity, period reorder are all 1.1 (Perry, 2026-10-04, `393c459`); 1.0 ships free | Not started; items accumulate in `ai/IDEAS.md` |
 
 ## Waiting on Perry
 1. ~~Device sitting~~ done per Perry 2026-10-19 ("It looks good"); remove this line at the next NOW-page edit.
-2. Merge PR #14 (https://github.com/pmartin1915/retold/pull/14: real icon + `-RetoldDemo` screenshot pipeline), then run deploy.yml so the build has the icon; final wording and price (deferred to 2026-10-26, sitting 2026-10-16).
+2. Run deploy.yml (upload=true) so a build carries the real icon (PR #14 is merged); final wording and price (deferred to 2026-10-26, sitting 2026-10-16).
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
