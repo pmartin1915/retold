@@ -8,6 +8,7 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AudioPlayback.self) private var playback
+    @Environment(\.openURL) private var openURL
     @Query(
         filter: #Predicate<Capture> { $0.episode == nil },
         sort: [SortDescriptor(\Capture.createdAt, order: .reverse)]
@@ -22,6 +23,7 @@ struct HomeView: View {
     // The id, never a Capture: reading a property of a deleted SwiftData model can trap.
     @State private var pendingDeleteID: UUID?
     @State private var deleteFailed = false
+    @State private var micBlocked = false
 
     private var sections: [TimelineSection] {
         Timeline.sections(
@@ -41,6 +43,10 @@ struct HomeView: View {
                         playback.stop()
                         Task { @MainActor in
                             await coordinator.startCapture(answering: nil)
+                            // A denied microphone used to do nothing visible.
+                            if case .blocked = coordinator.state.phase, coordinator.state.permission == .denied {
+                                micBlocked = true
+                            }
                         }
                     }
                 }
@@ -120,6 +126,16 @@ struct HomeView: View {
         .alert(AppCopy.deleteFailed, isPresented: $deleteFailed) {
             Button("OK") {}
         }
+        .alert(AppCopy.micBlockedTitle, isPresented: $micBlocked) {
+            Button(AppCopy.openSettings) {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            }
+            Button(AppCopy.cancelButton, role: .cancel) {}
+        } message: {
+            Text(AppCopy.micDenied)
+        }
         .onAppear {
             // Order matters: seed periods, then attach answers, then auto-present. Home is created
             // fresh after Stop, so autoPresentID is already set here; an episode answer must attach
@@ -150,7 +166,14 @@ struct HomeView: View {
         )
         switch state {
         case .transcribing:
-            captureRow(capture, detail: AppCopy.transcribingLabel)
+            // Tappable: a recording whose transcript never arrives (no on-device speech for this
+            // locale) must still be fileable with a typed title. ConfirmView handles this row.
+            Button {
+                present(capture)
+            } label: {
+                captureRow(capture, detail: AppCopy.transcribingLabel)
+            }
+            .buttonStyle(.plain)
         case .ready(let excerpt):
             Button {
                 present(capture)

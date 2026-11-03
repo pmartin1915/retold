@@ -145,6 +145,16 @@ enum AppCopy {
     static let themesEmptyTitle = "All caught up"
     /// Themes page: why the list is empty and what brings questions back.
     static let themesEmptyMessage = "You have been through every question for now. New ones appear as you record more memories."
+    /// Alert title when recording cannot start because the microphone is off.
+    static let micBlockedTitle = "Microphone is off"
+    /// Alert action that opens the iOS Settings page for this app.
+    static let openSettings = "Open Settings"
+    /// Alert title when a question action could not be saved.
+    static let saveFailedTitle = "That did not save"
+    /// Alert message when a question action could not be saved.
+    static let saveFailedMessage = "Try again in a moment."
+    /// Alert dismiss button.
+    static let okButton = "OK"
     /// R7b: heading for the open questions on a page.
     static let questionsHeader = "Questions"
     /// R7b: action for answering a question by recording.
@@ -235,6 +245,11 @@ enum AppCopy {
         untitled,
         placesTitle,
         themesTitle,
+        micBlockedTitle,
+        openSettings,
+        saveFailedTitle,
+        saveFailedMessage,
+        okButton,
         emptyTitle,
         goBack,
         emptyPeriodMessage,
