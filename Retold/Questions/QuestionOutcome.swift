@@ -12,6 +12,15 @@ extension Question {
         lastAskedAt = date
     }
 
+    /// Reopens a question the user set aside (Not this one, or skipped twice). False, and nothing
+    /// changes, unless it is .retired. `broad.open` is never retired, so it never needs this.
+    @discardableResult
+    func bringBack() -> Bool {
+        guard status == .retired else { return false }
+        status = .open
+        return true
+    }
+
     /// Applies the user's response. False, and nothing changes, if status is .answered
     /// or .retired.
     ///

@@ -155,6 +155,14 @@ enum AppCopy {
     static let saveFailedMessage = "Try again in a moment."
     /// Alert dismiss button.
     static let okButton = "OK"
+    /// Set-aside page: title, also the Home link.
+    static let setAsideTitle = "Set-aside questions"
+    /// Set-aside page: empty title.
+    static let setAsideEmptyTitle = "Nothing set aside"
+    /// Set-aside page: empty message.
+    static let setAsideEmptyMessage = "Questions you choose Not this one on appear here, so you can bring them back."
+    /// Set-aside page: action that reopens a question.
+    static let bringBack = "Bring back"
     /// R7b: heading for the open questions on a page.
     static let questionsHeader = "Questions"
     /// R7b: action for answering a question by recording.
@@ -245,6 +253,10 @@ enum AppCopy {
         untitled,
         placesTitle,
         themesTitle,
+        setAsideTitle,
+        setAsideEmptyTitle,
+        setAsideEmptyMessage,
+        bringBack,
         micBlockedTitle,
         openSettings,
         saveFailedTitle,
