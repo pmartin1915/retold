@@ -6,8 +6,14 @@ struct PeopleView: View {
     @Query(sort: \Person.name) private var people: [Person]
 
     var body: some View {
-        List(people) { person in
-            NavigationLink(person.name, destination: PersonView(person: person))
+        Group {
+            if people.isEmpty {
+                EmptyPage(title: AppCopy.noPeopleTitle, message: AppCopy.noPeopleMessage)
+            } else {
+                List(people) { person in
+                    NavigationLink(person.name, destination: PersonView(person: person))
+                }
+            }
         }
         .navigationTitle(AppCopy.peopleHeader)
     }
@@ -18,14 +24,18 @@ struct PersonView: View {
     let person: Person
 
     var body: some View {
-        List {
-            OfferSection(
-                offers: QuestionEngine.queue(for: PersonState(person: person)),
-                target: .person(person)
-            )
-            Section {
-                ForEach(person.episodes.newestFirst()) { episode in
-                    EpisodeRow(episode: episode)
+        let offers = QuestionEngine.queue(for: PersonState(person: person))
+        Group {
+            if offers.isEmpty && person.episodes.isEmpty {
+                EmptyPage(title: AppCopy.emptyTitle, message: AppCopy.emptyPersonMessage)
+            } else {
+                List {
+                    OfferSection(offers: offers, target: .person(person))
+                    Section {
+                        ForEach(person.episodes.newestFirst()) { episode in
+                            EpisodeRow(episode: episode)
+                        }
+                    }
                 }
             }
         }

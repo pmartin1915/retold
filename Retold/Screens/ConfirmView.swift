@@ -433,7 +433,12 @@ struct ConfirmView: View {
         }
         suggestionTask = nil
         findingSuggestions = false
-        guard !Task.isCancelled, draft == nil else { return }
+        guard draft == nil else { return }
+        if Task.isCancelled {
+            // A cancelled load must not strand a blank sheet; show the plain form instead.
+            buildDraft(outcome: nil)
+            return
+        }
         // Only a real proposal is cached: a .noModel failure (cancelled, timeout) retries on the next open.
         if case .proposal = outcome {
             onOutcome(outcome)
