@@ -9,14 +9,18 @@ struct PeriodView: View {
     @Query private var allQuestions: [Question]
 
     var body: some View {
-        List {
-            OfferSection(
-                offers: QuestionEngine.queue(for: PeriodState(period: period, questions: allQuestions)),
-                target: .period(period)
-            )
-            Section {
-                ForEach(period.episodes.newestFirst()) { episode in
-                    EpisodeRow(episode: episode)
+        let offers = QuestionEngine.queue(for: PeriodState(period: period, questions: allQuestions))
+        Group {
+            if offers.isEmpty && period.episodes.isEmpty {
+                EmptyPage(title: AppCopy.emptyTitle, message: AppCopy.emptyPeriodMessage)
+            } else {
+                List {
+                    OfferSection(offers: offers, target: .period(period))
+                    Section {
+                        ForEach(period.episodes.newestFirst()) { episode in
+                            EpisodeRow(episode: episode)
+                        }
+                    }
                 }
             }
         }

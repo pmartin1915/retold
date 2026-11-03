@@ -123,6 +123,28 @@ enum AppCopy {
     static let saveButton = "Save"
     /// R7b: cancel action in the period sheet.
     static let cancelButton = "Cancel"
+    /// Empty page: title when a page has no questions and no stories yet.
+    static let emptyTitle = "Nothing here yet"
+    /// Empty page: the one action, to leave an empty page.
+    static let goBack = "Go back"
+    /// Empty period page: what will appear.
+    static let emptyPeriodMessage = "Stories you file under this period will appear here."
+    /// Empty person page: what will appear.
+    static let emptyPersonMessage = "Stories that mention this person will appear here."
+    /// Empty place page: what will appear.
+    static let emptyPlaceMessage = "Stories filed at this place will appear here."
+    /// Empty People list: title.
+    static let noPeopleTitle = "No people yet"
+    /// Empty People list: what will appear.
+    static let noPeopleMessage = "People you confirm while filing a story will appear here."
+    /// Empty Places list: title.
+    static let noPlacesTitle = "No places yet"
+    /// Empty Places list: what will appear.
+    static let noPlacesMessage = "Places you confirm while filing a story will appear here."
+    /// Themes page: title when every question has been answered or set aside.
+    static let themesEmptyTitle = "All caught up"
+    /// Themes page: why the list is empty and what brings questions back.
+    static let themesEmptyMessage = "You have been through every question for now. New ones appear as you record more memories."
     /// R7b: heading for the open questions on a page.
     static let questionsHeader = "Questions"
     /// R7b: action for answering a question by recording.
@@ -213,6 +235,17 @@ enum AppCopy {
         untitled,
         placesTitle,
         themesTitle,
+        emptyTitle,
+        goBack,
+        emptyPeriodMessage,
+        emptyPersonMessage,
+        emptyPlaceMessage,
+        noPeopleTitle,
+        noPeopleMessage,
+        noPlacesTitle,
+        noPlacesMessage,
+        themesEmptyTitle,
+        themesEmptyMessage,
         periodsTitle,
         addPeriod,
         renamePeriod,
