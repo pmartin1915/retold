@@ -21,6 +21,7 @@ final class CaptureCoordinator {
     private(set) var state: RecorderState
     private(set) var liveText: String = ""        // UI only: journaled finals joined by " " + current volatile; reset at startEngine
     private(set) var journalError: Error?         // last journal failure, for the UI
+    private(set) var startFailure: String?        // why the last start failed, for the UI alert
     private(set) var processedEventCount = 0      // incremented after each handled event (tests)
     private(set) var lastImport: JournalImporter.Report?
     private(set) var lengthWarning = false        // §7a: the recorder screen's banner, from limits.warning
@@ -128,6 +129,9 @@ final class CaptureCoordinator {
     func handle(_ event: CaptureEngineEvent) {
         switch event {
         case .recorder(let recorderEvent):
+            if case .engineStartFailed = recorderEvent {
+                startFailure = engine.lastStartFailure ?? "unknown"
+            }
             send(recorderEvent)
         case .volatile(_, let text):
             currentVolatile = text
@@ -211,6 +215,7 @@ final class CaptureCoordinator {
                 try files.prepare()
             } catch {
                 journalError = error
+                startFailure = String(describing: error)
                 send(.engineStartFailed(captureID: captureID))
                 outstandingEngineCalls -= 1
                 return
@@ -304,6 +309,11 @@ final class CaptureCoordinator {
         if inbox.take() {
             send(.startRequested(answering: nil))
         }
+    }
+
+    /// The UI shows startFailure once, then clears it.
+    func clearStartFailure() {
+        startFailure = nil
     }
 
     /// In-app Record button: refresh route, then send.

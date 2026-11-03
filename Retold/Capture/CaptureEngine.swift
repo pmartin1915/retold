@@ -24,6 +24,12 @@ protocol CaptureEngine: AnyObject, Sendable {
     func stop(captureID: UUID) async
     /// The SAME stream on every access; single consumer (the coordinator).
     var events: AsyncStream<CaptureEngineEvent> { get }
+    /// Why the last start failed, for the UI. Real engine only; doubles report nil.
+    var lastStartFailure: String? { get }
+}
+
+extension CaptureEngine {
+    var lastStartFailure: String? { nil }
 }
 
 enum CaptureEngineEvent: Equatable, Sendable {

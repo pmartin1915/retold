@@ -23,6 +23,9 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
     /// Capture IDs whose stop has already run; a repeat stop emits nothing (spec 4.1).
     private var stoppedCaptureIDs: Set<UUID> = []
     private var tapInstalled = false
+    private let startFailure = OSAllocatedUnfairLock<String?>(initialState: nil)
+
+    var lastStartFailure: String? { startFailure.withLock { $0 } }
 
     /// Per-capture state, touched only from the protocol methods and the capture's own results task.
     private final class ActiveCapture: @unchecked Sendable {
@@ -75,9 +78,11 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
     // MARK: - start
 
     func start(captureID: UUID, audioURL: URL, route: TranscriptionRoute) async {
+        startFailure.withLock { $0 = nil }
         do {
             try await startUnsafe(captureID: captureID, audioURL: audioURL, route: route)
         } catch {
+            startFailure.withLock { $0 = String(describing: error) }
             await cleanupAfterFailedStart(audioURL: audioURL)
             eventsContinuation.yield(.recorder(.engineStartFailed(captureID: captureID)))
         }
@@ -113,24 +118,39 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         var builder: AsyncStream<AnalyzerInput>.Continuation?
         var converter: AVAudioConverter?
         if let module = SpeechModules.module(for: route, live: true) {
-            // Typed optional so this compiles whether the SDK returns AVAudioFormat or AVAudioFormat?.
-            let bestFormat: AVAudioFormat? = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module])
-            guard let analyzerFormat = bestFormat else { throw EngineError.converterUnavailable }
-            if inputFormat != analyzerFormat {
-                guard let made = AVAudioConverter(from: inputFormat, to: analyzerFormat) else {
-                    throw EngineError.converterUnavailable
+            do {
+                // Typed optional so this compiles whether the SDK returns AVAudioFormat or AVAudioFormat?.
+                let bestFormat: AVAudioFormat? = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module])
+                guard let analyzerFormat = bestFormat else { throw EngineError.converterUnavailable }
+                if inputFormat != analyzerFormat {
+                    guard let made = AVAudioConverter(from: inputFormat, to: analyzerFormat) else {
+                        throw EngineError.converterUnavailable
+                    }
+                    converter = made
+                }   // identical formats (rate, channels, sample type): pass buffers through
+                let (input, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
+                let analyzer = SpeechAnalyzer(modules: [module])
+                capture.analyzer = analyzer
+                capture.analyzerInput = inputBuilder
+                try await analyzer.start(inputSequence: input)
+                capture.hasTranscriber = true
+                builder = inputBuilder
+                // The mapped stream (Sendable) is what the task captures, not the module.
+                results = SpeechModules.results(of: module)
+            } catch {
+                // Audio first (PLAN section 1): a transcriber that cannot start (assets not yet
+                // downloaded, an unsupported locale) must never cost the user the recording. Carry
+                // on as audio-only; the file pass transcribes later, or the user files by title.
+                if let failed = capture.analyzer {
+                    await failed.cancelAndFinishNow()
                 }
-                converter = made
-            }   // identical formats (rate, channels, sample type): pass buffers through
-            let (input, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
-            let analyzer = SpeechAnalyzer(modules: [module])
-            capture.analyzer = analyzer
-            capture.analyzerInput = inputBuilder
-            try await analyzer.start(inputSequence: input)
-            capture.hasTranscriber = true
-            builder = inputBuilder
-            // The mapped stream (Sendable) is what the task captures, not the module.
-            results = SpeechModules.results(of: module)
+                capture.analyzer = nil
+                capture.analyzerInput = nil
+                capture.hasTranscriber = false
+                results = nil
+                builder = nil
+                converter = nil
+            }
         }
 
         let sink = TapSink(file: file, converter: converter, builder: builder)
