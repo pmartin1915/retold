@@ -163,6 +163,10 @@ enum AppCopy {
     static let setAsideEmptyMessage = "Questions you choose Not this one on appear here, so you can bring them back."
     /// Set-aside page: action that reopens a question.
     static let bringBack = "Bring back"
+    /// Alert title when a recording could not start.
+    static let startFailedTitle = "Recording could not start"
+    /// Alert message prefix; the technical detail follows it.
+    static let startFailedMessage = "Nothing was recorded. Close Retold and try again. Details: "
     /// R7b: heading for the open questions on a page.
     static let questionsHeader = "Questions"
     /// R7b: action for answering a question by recording.
@@ -253,6 +257,8 @@ enum AppCopy {
         untitled,
         placesTitle,
         themesTitle,
+        startFailedTitle,
+        startFailedMessage,
         setAsideTitle,
         setAsideEmptyTitle,
         setAsideEmptyMessage,

@@ -127,6 +127,14 @@ struct HomeView: View {
         .alert(AppCopy.deleteFailed, isPresented: $deleteFailed) {
             Button("OK") {}
         }
+        .alert(AppCopy.startFailedTitle, isPresented: Binding(
+            get: { coordinator.startFailure != nil },
+            set: { if !$0 { coordinator.clearStartFailure() } }
+        )) {
+            Button(AppCopy.okButton, role: .cancel) {}
+        } message: {
+            Text(AppCopy.startFailedMessage + (coordinator.startFailure ?? ""))
+        }
         .alert(AppCopy.micBlockedTitle, isPresented: $micBlocked) {
             Button(AppCopy.openSettings) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
