@@ -64,6 +64,7 @@ struct HomeView: View {
                     NavigationLink(AppCopy.placesTitle, destination: PlacesView())
                     NavigationLink(AppCopy.themesTitle, destination: ThemesView())
                     NavigationLink(AppCopy.periodsTitle, destination: PeriodsView())
+                    NavigationLink(AppCopy.setAsideTitle, destination: SetAsideView())
                 }
                 ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
                     Section {

@@ -25,6 +25,24 @@ final class QuestionOutcomeTests: XCTestCase {
         XCTAssertEqual(skipped.status, .skipped)
     }
 
+    func testBringBackReopensOnlyRetiredQuestions() {
+        let retired = question(status: .retired)
+        XCTAssertTrue(retired.bringBack())
+        XCTAssertEqual(retired.status, .open)
+
+        let open = question()
+        XCTAssertFalse(open.bringBack())
+        XCTAssertEqual(open.status, .open)
+
+        let answered = question(status: .answered)
+        XCTAssertFalse(answered.bringBack())
+        XCTAssertEqual(answered.status, .answered)
+
+        let skipped = question(status: .skipped)
+        XCTAssertFalse(skipped.bringBack())
+        XCTAssertEqual(skipped.status, .skipped)
+    }
+
     func testSkippedTransitions() {
         let answered = question(status: .skipped)
         XCTAssertTrue(answered.record(.answered))
