@@ -53,3 +53,10 @@ One line each: idea, why deferred, where it applies. Sweep at session start.
 - 2026-10-04 (R7b): a short answer (under 2 s) attaches but leaves its question open. Tune the threshold after device use.
 - 2026-10-04 (R7c): add a Delete button inside `ConfirmView`, so the user can delete a botched recording from the screen where they notice it. 1.0 has swipe-only on Home.
 - 2026-10-04 (R7c): add deleting filed captures and episodes. These need cascade rules for Details, Questions and excerpts that quote the capture. 1.1 at the earliest.
+- 2026-11-03 (device test + audit): double-tapping Record or Answer now starts and stops a capture at once (RecorderMachine .starting + second tap = stopRequested). Guard the tap in the view, or ignore taps unless the phase is idle or blocked.
+- 2026-11-03 (audit): Recorder screen can sit on .starting or .stopping with no spinner and no timeout (LiveCaptureEngine stop awaits finalize). Show Saving... and add a watchdog of about 15 s.
+- 2026-11-03 (audit): a failed Resume after an interruption ends the recording with no message. Show 'Recording ended early. What you recorded is saved.' on Home.
+- 2026-11-03 (audit): File is disabled with no reason and the confirm sheet has no Cancel. Add helper text under the title field and a Cancel button.
+- 2026-11-03 (audit): playback failures are silent (AudioPlayback.stop on every failure). Expose lastPlayFailed and show one line in EpisodeView.
+- 2026-11-03 (audit): PeriodsView rename/add sheet swallows save failures; Home shows an empty Unfiled header for a new user; Settings sheet has no Done; export share link goes stale within a session. Small fixes, 1.1.
+- 2026-11-03 (Perry): 1.1 INTERFACE ELEVATION. Retold looks like a notes page. Raise it to the Burn Wizard benchmark (and Perry likes some Wilderness Survival features; ask which before designing) using HOUSE-STYLE rules 1-26 and the shared SwiftUI package with Tellfolk. Start by listing the Wilderness features Perry means, then a one-page design brief reviewed by Sol (Deck design is Sol-worthy). Not for 1.0.
