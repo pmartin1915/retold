@@ -10,6 +10,7 @@ struct SettingsView: View {
 
     @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = true
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     private enum ExportState {
         case idle
@@ -56,6 +57,11 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle(AppCopy.settingsTitle)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(AppCopy.doneButton) { dismiss() }
+                }
+            }
         }
     }
 

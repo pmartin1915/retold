@@ -85,6 +85,18 @@ final class CaptureCoordinatorTests: XCTestCase {
         return try context.fetch(descriptor).first
     }
 
+    // MARK: - Double tap
+
+    /// Two quick taps on Record must start one capture, not a capture that stops at once.
+    @MainActor
+    func testDoubleTapStartsOneCaptureThatKeepsRecording() async throws {
+        let harness = try makeHarness()
+        async let first: Void = harness.coordinator.startCapture(answering: nil)
+        async let second: Void = harness.coordinator.startCapture(answering: nil)
+        _ = await (first, second)
+        XCTAssertEqual(harness.coordinator.state.phase, .starting(captureID: captureID, stopRequested: false))
+    }
+
     // MARK: - The week-1 gate
 
     @MainActor

@@ -34,6 +34,7 @@ final class CaptureCoordinator {
     @ObservationIgnored private let routeProvider: @Sendable () async -> TranscriptionRoute
     @ObservationIgnored private let container: ModelContainer
     @ObservationIgnored private let inbox: CaptureLaunchInbox
+    @ObservationIgnored private var startInFlight = false
     @ObservationIgnored private let makeWriter: (CaptureFiles, UUID) throws -> any JournalAppending
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let newID: () -> UUID
@@ -318,6 +319,12 @@ final class CaptureCoordinator {
 
     /// In-app Record button: refresh route, then send.
     func startCapture(answering: UUID?) async {
+        // The route lookup suspends. A second tap in that gap would reach the reducer as a second
+        // startRequested, which §7a reads as "stop as soon as it starts": the capture would start
+        // and end at once. In-app taps are single-flight; the Action button sends the event directly.
+        guard !startInFlight else { return }
+        startInFlight = true
+        defer { startInFlight = false }
         send(.routeChanged(await routeProvider()))
         send(.startRequested(answering: answering))
     }

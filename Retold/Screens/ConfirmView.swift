@@ -55,6 +55,9 @@ struct ConfirmView: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(AppCopy.cancelButton) { dismiss() }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(AppCopy.fileButton) {
                         file()
@@ -102,6 +105,11 @@ struct ConfirmView: View {
                     get: { draft?.typedTitle ?? "" },
                     set: { value in mutateDraft { $0.typedTitle = value } }
                 ))
+                if !current.canFile {
+                    Text(AppCopy.titleNeededHint)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section(AppCopy.periodHeader) {
