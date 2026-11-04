@@ -31,6 +31,8 @@ enum AppCopy {
     static let resumeButton = "Resume"
     /// R6b: recorder state label while recording.
     static let recordingLabel = "Recording"
+    /// Recorder state label while the engine is starting, before audio is captured.
+    static let startingLabel = "Getting ready…"
     /// Recorder state label while the file is being finalized after Stop.
     static let savingLabel = "Saving…"
     /// Settings sheet dismiss button.
@@ -224,6 +226,7 @@ enum AppCopy {
         stopButton,
         resumeButton,
         recordingLabel,
+        startingLabel,
         savingLabel,
         doneButton,
         titleNeededHint,
