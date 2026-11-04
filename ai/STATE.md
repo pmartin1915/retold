@@ -1,21 +1,12 @@
 # STATE: retold (NOW)
 
-**Updated 2026-10-16.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
+**Updated 2026-11-04.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
 
 ## Critical path
-Retold 1.0 submit targets ~10-27 (Perry, 2026-10-04: both apps out in October; `dab59d2`). The code is feature-complete for 1.0 through R7c (main `aa83a12`, 479 tests green, run `37261654235`). What gates the submit is Perry: run the device sitting (Sat 2026-10-17) on the TestFlight build, and finish submit prep. The latest main is on TestFlight (deploy run `38854452592`, 2026-10-16). Owner: Perry; StoryCue (submit 10-16) has priority on his device time.
-
-## Live workstreams
-| Stream | State | Next |
-|---|---|---|
-| TestFlight | R7c (`ced7c7a`) deployed to TestFlight 2026-10-16, run `38854452592` succeeded (previous upload 1.0.0 (6.1) from `47d5edd`, run `37255634221`) | None; device sitting next |
-| Device sitting | Done: Perry reported "It looks good" at decision sitting 2026-10-19 (no per-check notes given) | Submit prep is next |
-| Submit prep | 2026-10-19: ASC listing filled (name Retold: Life Stories, Spoken, subtitle, categories, promo, description, keywords, support URL, copyright, review notes, contact, manual release, privacy label Data Not Collected published); martinapps.dev/retold support + privacy pages live (`7b38619` in martinapps-site); 6.9" screenshots uploaded (5, from PR #14 run 39344699743); icon + demo-mode screenshot pipeline merged as PR #14 (`14713ad`, 2026-10-19; screenshots re-shot without the charging bolt, run 39349600999) | Perry ran deploy.yml (run `39378950010`, main `4e98428`) and Claude attached build 8.1 (new icon); content rights set to No third-party content, age rating 4+, price and availability (175 regions) set by Perry; submitted 2026-10-20; 2026-10-21 pulled twice and resubmitted by Claude at Perry's request: status-bar-free screenshots, then build 9.1 (deploy run `39553260490`, main `8a603b5`, PR #15) with the brand family-line replay-loop icon | Wait for Apple's verdict |
-| Audits owed | Kimi independent audits of `85e43e0` (R7a), `47d5edd` (R7b), `ced7c7a` (R7c); Kimi was weekly-capped 2026-10-04 (unverified now) | Run when Kimi resets. Sol was weekly-limited to 2026-10-09 (since lapsed, unverified) |
-| 1.1 backlog | Nudges, transcript corrections, one-time unlock, Live Activity, period reorder are all 1.1 (Perry, 2026-10-04, `393c459`); 1.0 ships free | Not started; items accumulate in `ai/IDEAS.md` |
+Retold 1.0 was pulled from review after the recorder failed on device (OSStatus -50); fixed in PRs #17-#19, then hardened in PR #20 (`d098c3a`: single-flight Record tap, Saving state, Done/Cancel, title hint). Version 1.0 in ASC is "Prepare for Submission". Build 14.1 (deploy run `41797235996`, main `d098c3a`) is processing in TestFlight; it replaces 13.1 on the version page. Add for Review and Submit are Perry's.
 
 ## Waiting on Perry
-Nothing. Retold 1.0 (build 9.1) is in App Review (resubmitted 2026-10-21), ahead of the ~10-27 target; watch pmartin1912@ for Apple's mail and read the message in Resolution Center if it is rejected.
+- Record the 8-step device video on build 14.1 (not 13.1), attach it under App Review Information > Attachment, then submit. Steps are in `dev-ops/HANDOFF-2026-11-04-bw-review-retold-resubmit.md`.
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
