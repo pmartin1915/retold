@@ -23,6 +23,8 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
     /// Capture IDs whose stop has already run; a repeat stop emits nothing (spec 4.1).
     private var stoppedCaptureIDs: Set<UUID> = []
     private var tapInstalled = false
+    /// Which start step is running, so a failure names it (touched only by start/startUnsafe).
+    private var startStep = "begin"
     private let startFailure = OSAllocatedUnfairLock<String?>(initialState: nil)
 
     var lastStartFailure: String? { startFailure.withLock { $0 } }
@@ -82,18 +84,24 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         do {
             try await startUnsafe(captureID: captureID, audioURL: audioURL, route: route)
         } catch {
-            startFailure.withLock { $0 = String(describing: error) }
+            startFailure.withLock { $0 = "\(startStep): \(error)" }
             await cleanupAfterFailedStart(audioURL: audioURL)
             eventsContinuation.yield(.recorder(.engineStartFailed(captureID: captureID)))
         }
     }
 
     private func startUnsafe(captureID: UUID, audioURL: URL, route: TranscriptionRoute) async throws {
-        try session.setCategory(.record, mode: .spokenAudio)
+        startStep = "session category"
+        try configureSession()
+        startStep = "session activate"
         try session.setActive(true)
 
+        startStep = "input format"
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            throw EngineError.noInput
+        }
 
         // Create exclusively (never truncate an existing recording) with the recording protection
         // class, then open; the open may recreate the file, so re-apply the class afterwards.
@@ -102,6 +110,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
                                              attributes: [.protectionKey: ProtectionPlan.whileRecording]) else {
             throw EngineError.fileCreateFailed
         }
+        startStep = "audio file"
         let file = try AVAudioFile(forWriting: audioURL, settings: [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: inputFormat.sampleRate,
@@ -153,6 +162,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             }
         }
 
+        startStep = "tap"
         let sink = TapSink(file: file, converter: converter, builder: builder)
         capture.sink = sink
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { buffer, _ in
@@ -160,6 +170,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         }
         tapInstalled = true
 
+        startStep = "engine start"
         engine.prepare()
         try engine.start()
         activeFlag.withLockUnchecked { $0 = (true, inputFormat) }
@@ -189,6 +200,27 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
                 capture.resultsFailed.withLock { $0 = true }
             }
         }
+    }
+
+    /// iOS rejects some category and mode pairs with OSStatus -50, and which pairs it accepts can
+    /// differ by device and OS. Try the preferred pair, then pairs that are always valid for recording.
+    private func configureSession() throws {
+        let attempts: [(AVAudioSession.Category, AVAudioSession.Mode)] = [
+            (.record, .spokenAudio),
+            (.playAndRecord, .spokenAudio),
+            (.playAndRecord, .default),
+            (.record, .default),
+        ]
+        var firstError: Error?
+        for (category, mode) in attempts {
+            do {
+                try session.setCategory(category, mode: mode)
+                return
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+        }
+        throw firstError ?? EngineError.noInput
     }
 
     // MARK: - pause / resume
@@ -336,7 +368,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
     var events: AsyncStream<CaptureEngineEvent> { eventsStream }
 
     private enum EngineError: Error {
-        case fileCreateFailed, converterUnavailable, inputFormatChanged
+        case fileCreateFailed, converterUnavailable, inputFormatChanged, noInput
     }
 }
 
