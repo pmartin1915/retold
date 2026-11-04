@@ -31,6 +31,12 @@ enum AppCopy {
     static let resumeButton = "Resume"
     /// R6b: recorder state label while recording.
     static let recordingLabel = "Recording"
+    /// Recorder state label while the file is being finalized after Stop.
+    static let savingLabel = "Saving…"
+    /// Settings sheet dismiss button.
+    static let doneButton = "Done"
+    /// Confirm flow: why File it is unavailable.
+    static let titleNeededHint = "Add a title to file this memory."
     /// R6b: recorder state label while interrupted.
     static let pausedLabel = "Paused"
     /// R6b: the store failed to open at launch.
@@ -218,6 +224,9 @@ enum AppCopy {
         stopButton,
         resumeButton,
         recordingLabel,
+        savingLabel,
+        doneButton,
+        titleNeededHint,
         pausedLabel,
         startupFailed,
         homeTitle,

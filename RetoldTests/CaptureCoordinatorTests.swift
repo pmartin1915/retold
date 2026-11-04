@@ -38,7 +38,8 @@ final class CaptureCoordinatorTests: XCTestCase {
         makeWriter: ((CaptureFiles, UUID) throws -> any JournalAppending)? = nil,
         now: @escaping () -> Date = Date.init,
         newID: (() -> UUID)? = nil,
-        lengthLimits: CaptureLengthLimits = .standard
+        lengthLimits: CaptureLengthLimits = .standard,
+        routeProvider: (@Sendable () async -> TranscriptionRoute)? = nil
     ) throws -> Harness {
         // Every test drives events for `captureID`, so the reducer must mint that ID by default.
         let newID = newID ?? { [captureID] in captureID }
@@ -54,7 +55,7 @@ final class CaptureCoordinatorTests: XCTestCase {
         let writer: (CaptureFiles, UUID) throws -> any JournalAppending = makeWriter ?? { files, id in
             try JournalWriter(files: files, captureID: id, protector: protector)
         }
-        let provider: @Sendable () async -> TranscriptionRoute = { route }
+        let provider: @Sendable () async -> TranscriptionRoute = routeProvider ?? { route }
         let coordinator = CaptureCoordinator(
             engine: engine,
             fileTranscriber: transcriber,
@@ -83,6 +84,43 @@ final class CaptureCoordinatorTests: XCTestCase {
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<Capture>(predicate: #Predicate { $0.id == cid })
         return try context.fetch(descriptor).first
+    }
+
+    // MARK: - Double tap
+
+    /// Holds the route lookup open so a second tap arrives while the first start is suspended.
+    private actor RouteGate {
+        private var open = false
+        private var waiter: CheckedContinuation<Void, Never>?
+        func wait() async {
+            if open { return }
+            await withCheckedContinuation { waiter = $0 }
+        }
+        func release() {
+            open = true
+            waiter?.resume()
+            waiter = nil
+        }
+    }
+
+    /// Two quick taps on Record must start one capture, not a capture that stops at once.
+    @MainActor
+    func testDoubleTapStartsOneCaptureThatKeepsRecording() async throws {
+        let gate = RouteGate()
+        let harness = try makeHarness(routeProvider: {
+            await gate.wait()
+            return .audioOnly(.notChecked)
+        })
+        let first = Task { @MainActor in await harness.coordinator.startCapture(answering: nil) }
+        let second = Task { @MainActor in await harness.coordinator.startCapture(answering: nil) }
+        for _ in 0..<10 { await Task.yield() }
+        await gate.release()
+        await first.value
+        await second.value
+        XCTAssertEqual(harness.coordinator.state.phase, .starting(captureID: captureID, stopRequested: false))
+        await harness.coordinator.drainEffects()
+        harness.coordinator.handle(.recorder(.engineStarted(captureID: captureID)))
+        XCTAssertEqual(harness.coordinator.state.phase, .recording(captureID: captureID))
     }
 
     // MARK: - The week-1 gate

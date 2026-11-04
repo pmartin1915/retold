@@ -50,13 +50,15 @@ struct HomeView: View {
                         }
                     }
                 }
-                Section(AppCopy.unfiledHeader) {
-                    ForEach(unfiledCaptures) { capture in
-                        unfiledRow(capture)
-                            // Not a full swipe: a full swipe must never delete without the dialog.
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(AppCopy.deleteAction, role: .destructive) { pendingDeleteID = capture.id }
-                            }
+                if !unfiledCaptures.isEmpty {
+                    Section(AppCopy.unfiledHeader) {
+                        ForEach(unfiledCaptures) { capture in
+                            unfiledRow(capture)
+                                // Not a full swipe: a full swipe must never delete without the dialog.
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(AppCopy.deleteAction, role: .destructive) { pendingDeleteID = capture.id }
+                                }
+                        }
                     }
                 }
                 Section {

@@ -18,6 +18,11 @@ struct RecorderView: View {
         return false
     }
 
+    private var isStopping: Bool {
+        if case .stopping = coordinator.state.phase { return true }
+        return false
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             if coordinator.state.answering != nil {
@@ -46,6 +51,13 @@ struct RecorderView: View {
                 Button(AppCopy.resumeButton) {
                     Task { @MainActor in coordinator.send(.tapResume) }
                 }
+            } else if isStopping {
+                // The engine is finalizing the file: say so, instead of looking like it still records.
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(AppCopy.savingLabel)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Text(AppCopy.recordingLabel)
                     .foregroundStyle(.secondary)
@@ -59,6 +71,7 @@ struct RecorderView: View {
             Button(AppCopy.stopButton) {
                 Task { @MainActor in coordinator.send(.tapStop) }
             }
+            .disabled(isStopping)
         }
         .padding()
         .onAppear {
