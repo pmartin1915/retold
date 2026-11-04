@@ -56,20 +56,56 @@ private struct RootView: View {
         _playback = State(initialValue: AudioPlayback(files: services.coordinator.files))
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum Screen { case firstRun, recorder, home }
+
+    private var screen: Screen {
+        if coordinator.state.permission == .undetermined { return .firstRun }
+        switch coordinator.state.phase {
+        case .starting, .recording, .interrupted, .stopping: return .recorder
+        case .idle, .blocked, .aborting: return .home
+        }
+    }
+
+    /// Haptic for a recorder phase change; nil means no feedback.
+    static func feedback(from old: RecorderPhase, to new: RecorderPhase) -> SensoryFeedback? {
+        switch (old, new) {
+        case (_, .recording):
+            return .start
+        case (.recording, .interrupted):
+            return .warning
+        case (_, .stopping):
+            return .stop
+        case (.stopping, .idle):
+            return .success
+        default:
+            return nil
+        }
+    }
+
     var body: some View {
         Group {
             if coordinator.state.permission == .undetermined {
                 FirstRunView(engine: services.engine, prefetch: services.prefetch) { permission in
                     coordinator.send(.permissionChanged(permission))
                 }
+                .transition(.opacity)
             } else {
                 switch coordinator.state.phase {
                 case .starting, .recording, .interrupted, .stopping:
                     RecorderView(coordinator: coordinator)
+                        .transition(.opacity)
                 case .idle, .blocked, .aborting:
                     HomeView(coordinator: coordinator, autoPresentID: $autoPresentID)
+                        .transition(.opacity)
                 }
             }
+        }
+        // Screen swaps fade instead of cutting; Reduce Motion turns the animation off.
+        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: screen)
+        .sensoryFeedback(trigger: coordinator.state.phase) { old, new in
+            Self.feedback(from: old, to: new)
         }
         .environment(playback)
         .environment(coordinator)

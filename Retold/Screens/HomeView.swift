@@ -283,6 +283,7 @@ struct PlayPauseButton: View {
         .buttonStyle(.borderless)
         .disabled(!playback.canPlay(captureID))
         .accessibilityLabel(isThisPlaying ? AppCopy.pauseButton : AppCopy.playButton)
+        .sensoryFeedback(.impact(weight: .light), trigger: isThisPlaying)
     }
 }
 
