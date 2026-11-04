@@ -6,15 +6,28 @@ import SwiftUI
 /// (R7 replaces this screen; no design pass).
 struct RecorderView: View {
     let coordinator: CaptureCoordinator
-    /// Approximation of "when the phase became .recording" (spec allows approximate):
-    /// the clock starts when this view appears for a capture.
-    @State private var startedAt = Date()
+    /// Anchor for the once-a-second redraw only; the displayed time is accumulated audio time.
+    @State private var tickAnchor = Date()
+    /// Seconds recorded in earlier .recording stretches (an interruption closes one).
+    @State private var accumulated: TimeInterval = 0
+    /// When the current .recording stretch began; nil while starting, interrupted or stopping.
+    @State private var runningSince: Date?
     @Environment(\.modelContext) private var modelContext
     /// R7b: the question this capture answers, fetched once on appear. Hidden when not found.
     @State private var answeringText: String?
 
     private var isInterrupted: Bool {
         if case .interrupted = coordinator.state.phase { return true }
+        return false
+    }
+
+    private var isRecording: Bool {
+        if case .recording = coordinator.state.phase { return true }
+        return false
+    }
+
+    private var isStarting: Bool {
+        if case .starting = coordinator.state.phase { return true }
         return false
     }
 
@@ -37,7 +50,7 @@ struct RecorderView: View {
             Circle()
                 .fill(.red)
                 .frame(width: 16, height: 16)
-            TimelineView(.periodic(from: startedAt, by: 1)) { context in
+            TimelineView(.periodic(from: tickAnchor, by: 1)) { context in
                 Text(elapsed(at: context.date))
                     .font(.title2.monospacedDigit())
             }
@@ -50,6 +63,13 @@ struct RecorderView: View {
                     .foregroundStyle(.secondary)
                 Button(AppCopy.resumeButton) {
                     Task { @MainActor in coordinator.send(.tapResume) }
+                }
+            } else if isStarting {
+                // Engine spin-up: no audio is being captured yet, so do not say "Recording".
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(AppCopy.startingLabel)
+                        .foregroundStyle(.secondary)
                 }
             } else if isStopping {
                 // The engine is finalizing the file: say so, instead of looking like it still records.
@@ -71,11 +91,25 @@ struct RecorderView: View {
             Button(AppCopy.stopButton) {
                 Task { @MainActor in coordinator.send(.tapStop) }
             }
-            .disabled(isStopping)
+            .disabled(isStopping || isStarting)
         }
         .padding()
         .onAppear {
             loadAnsweringText()
+            syncClock()
+        }
+        .onChange(of: coordinator.state.phase) { _, _ in
+            syncClock()
+        }
+    }
+
+    /// Counts time only while the phase is .recording, so the clock matches the saved file.
+    private func syncClock() {
+        if isRecording {
+            if runningSince == nil { runningSince = Date() }
+        } else if let since = runningSince {
+            accumulated += Date().timeIntervalSince(since)
+            runningSince = nil
         }
     }
 
@@ -89,7 +123,8 @@ struct RecorderView: View {
     }
 
     private func elapsed(at now: Date) -> String {
-        let total = Int(now.timeIntervalSince(startedAt))
+        let live = runningSince.map { now.timeIntervalSince($0) } ?? 0
+        let total = Int(accumulated + live)
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
 }

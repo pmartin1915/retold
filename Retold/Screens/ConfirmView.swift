@@ -51,7 +51,7 @@ struct ConfirmView: View {
                     }
                     .padding()
                 } else {
-                    Color.clear
+                    ProgressView()
                 }
             }
             .toolbar {

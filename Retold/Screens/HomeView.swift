@@ -127,7 +127,7 @@ struct HomeView: View {
             Text(AppCopy.deleteRecordingMessage)
         }
         .alert(AppCopy.deleteFailed, isPresented: $deleteFailed) {
-            Button("OK") {}
+            Button(AppCopy.okButton, role: .cancel) {}
         }
         .alert(AppCopy.startFailedTitle, isPresented: Binding(
             get: { coordinator.startFailure != nil },

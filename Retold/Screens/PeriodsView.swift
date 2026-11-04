@@ -53,6 +53,7 @@ struct PeriodEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text: String
     @State private var isDuplicate = false
+    @State private var saveFailed = false
 
     init(target: PeriodSheetTarget) {
         self.target = target
@@ -99,6 +100,11 @@ struct PeriodEditSheet: View {
             .onChange(of: text) { _, _ in
                 isDuplicate = false
             }
+            .alert(AppCopy.saveFailedTitle, isPresented: $saveFailed) {
+                Button(AppCopy.okButton, role: .cancel) {}
+            } message: {
+                Text(AppCopy.saveFailedMessage)
+            }
         }
     }
 
@@ -113,8 +119,10 @@ struct PeriodEditSheet: View {
             dismiss()
         } catch PeriodEditError.duplicateTitle {
             isDuplicate = true
+        } catch PeriodEditError.emptyTitle {
+            // Save is disabled for an empty title; the sheet stays open.
         } catch {
-            // .emptyTitle and save failures keep the sheet open, with no alert.
+            saveFailed = true
         }
     }
 }
