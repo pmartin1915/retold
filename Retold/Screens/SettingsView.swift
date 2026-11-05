@@ -66,8 +66,17 @@ struct SettingsView: View {
     }
 
     /// Builds the manifest on the main actor, then zips off it. Export is never gated.
+    /// SwiftData models are not Sendable, so the fetch stays on the main actor; yielding first lets
+    /// the "preparing" state paint before a large library blocks the thread.
     private func startExport() {
         exportState = .preparing
+        Task { @MainActor in
+            await Task.yield()
+            runExport()
+        }
+    }
+
+    private func runExport() {
         let manifest: ExportManifest
         do {
             let periods = try modelContext.fetch(FetchDescriptor<Period>())
