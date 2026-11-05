@@ -100,6 +100,15 @@ struct RecorderView: View {
         }
         .onChange(of: coordinator.state.phase) { _, _ in
             syncClock()
+            // A sighted user sees the label change; VoiceOver users need it spoken.
+            if isInterrupted {
+                AccessibilityNotification.Announcement(AppCopy.pausedLabel).post()
+            } else if isStopping {
+                AccessibilityNotification.Announcement(AppCopy.savingLabel).post()
+            }
+        }
+        .onChange(of: coordinator.lengthWarning) { _, warning in
+            if warning { AccessibilityNotification.Announcement(AppCopy.lengthWarning).post() }
         }
     }
 

@@ -35,6 +35,10 @@ enum AppCopy {
     static let startingLabel = "Getting ready…"
     /// Recorder state label while the file is being finalized after Stop.
     static let savingLabel = "Saving…"
+    /// VoiceOver label for the playback scrubber.
+    static let playbackPosition = "Playback position"
+    /// VoiceOver label prefix for a remove (trash) button; the item name follows.
+    static let removeLabel = "Remove"
     /// Settings sheet dismiss button.
     static let doneButton = "Done"
     /// Confirm flow: why File it is unavailable.
@@ -228,6 +232,8 @@ enum AppCopy {
         recordingLabel,
         startingLabel,
         savingLabel,
+        playbackPosition,
+        removeLabel,
         doneButton,
         titleNeededHint,
         pausedLabel,

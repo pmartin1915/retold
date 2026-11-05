@@ -96,6 +96,7 @@ struct HomeView: View {
                         showingSettings = true
                     } label: {
                         Image(systemName: "gearshape")
+                            .accessibilityLabel(AppCopy.settingsTitle)
                     }
                 }
             }
@@ -283,6 +284,8 @@ struct PlayPauseButton: View {
         .buttonStyle(.borderless)
         .disabled(!playback.canPlay(captureID))
         .accessibilityLabel(isThisPlaying ? AppCopy.pauseButton : AppCopy.playButton)
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
         .sensoryFeedback(.impact(weight: .light), trigger: isThisPlaying)
     }
 }

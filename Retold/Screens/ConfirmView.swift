@@ -218,7 +218,10 @@ struct ConfirmView: View {
                             mutateDraft { $0.removeTypedPerson(at: index) }
                         } label: {
                             Image(systemName: "trash")
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
+                        .accessibilityLabel("\(AppCopy.removeLabel) \(entityName(entity, known: current.knownPeople))")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -267,7 +270,10 @@ struct ConfirmView: View {
                             mutateDraft { $0.setTypedPlace(nil) }
                         } label: {
                             Image(systemName: "trash")
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
+                        .accessibilityLabel("\(AppCopy.removeLabel) \(entityName(typedPlace, known: current.knownPlaces))")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -325,7 +331,9 @@ struct ConfirmView: View {
             }
             Spacer()
             Button(AppCopy.acceptButton, action: accept)
+                .frame(minHeight: 44)
             Button(AppCopy.rejectButton, action: reject)
+                .frame(minHeight: 44)
         }
         .buttonStyle(.borderless)
     }
