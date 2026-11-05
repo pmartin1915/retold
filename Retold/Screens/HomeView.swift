@@ -280,12 +280,12 @@ struct PlayPauseButton: View {
             }
         } label: {
             Image(systemName: isThisPlaying ? "pause.fill" : "play.fill")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .disabled(!playback.canPlay(captureID))
         .accessibilityLabel(isThisPlaying ? AppCopy.pauseButton : AppCopy.playButton)
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
         .sensoryFeedback(.impact(weight: .light), trigger: isThisPlaying)
     }
 }
