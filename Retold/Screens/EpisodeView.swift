@@ -94,6 +94,8 @@ struct EpisodeView: View {
                 in: 0...max(capture.duration, 1)
             )
             .disabled(capture.duration <= 0)
+            .accessibilityLabel(AppCopy.playbackPosition)
+            .accessibilityValue("\(ExportManifest.formatClock(isLoaded ? playback.currentTime : 0)) / \(ExportManifest.formatClock(capture.duration))")
             Text("\(ExportManifest.formatClock(isLoaded ? playback.currentTime : 0)) / \(ExportManifest.formatClock(capture.duration))")
                 .font(.footnote.monospacedDigit())
                 .foregroundStyle(.secondary)

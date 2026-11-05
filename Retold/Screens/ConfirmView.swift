@@ -218,7 +218,10 @@ struct ConfirmView: View {
                             mutateDraft { $0.removeTypedPerson(at: index) }
                         } label: {
                             Image(systemName: "trash")
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
+                        .accessibilityLabel(removeLabel(entityName(entity, known: current.knownPeople)))
                     }
                     .buttonStyle(.borderless)
                 }
@@ -267,7 +270,10 @@ struct ConfirmView: View {
                             mutateDraft { $0.setTypedPlace(nil) }
                         } label: {
                             Image(systemName: "trash")
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
+                        .accessibilityLabel(removeLabel(entityName(typedPlace, known: current.knownPlaces)))
                     }
                     .buttonStyle(.borderless)
                 }
@@ -324,8 +330,13 @@ struct ConfirmView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(AppCopy.acceptButton, action: accept)
-            Button(AppCopy.rejectButton, action: reject)
+            // The frame sits inside the label: a frame outside a borderless Button grows the row, not the tap area.
+            Button(action: accept) {
+                Text(AppCopy.acceptButton).frame(minHeight: 44).contentShape(Rectangle())
+            }
+            Button(action: reject) {
+                Text(AppCopy.rejectButton).frame(minHeight: 44).contentShape(Rectangle())
+            }
         }
         .buttonStyle(.borderless)
     }
@@ -365,6 +376,10 @@ struct ConfirmView: View {
                 }
             }
         )
+    }
+
+    private func removeLabel(_ name: String) -> String {
+        name.isEmpty ? AppCopy.removeLabel : "\(AppCopy.removeLabel) \(name)"
     }
 
     private func entityName(_ entity: TypedEntity, known: [EntityRef]) -> String {

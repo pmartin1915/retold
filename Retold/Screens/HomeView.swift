@@ -96,6 +96,7 @@ struct HomeView: View {
                         showingSettings = true
                     } label: {
                         Image(systemName: "gearshape")
+                            .accessibilityLabel(AppCopy.settingsTitle)
                     }
                 }
             }
@@ -279,6 +280,8 @@ struct PlayPauseButton: View {
             }
         } label: {
             Image(systemName: isThisPlaying ? "pause.fill" : "play.fill")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .disabled(!playback.canPlay(captureID))
