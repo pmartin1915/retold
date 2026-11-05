@@ -17,6 +17,8 @@ final class ScreenshotTests: XCTestCase {
         let recordButton = app.buttons["Record a memory"].firstMatch
         guard waitForScreen(recordButton, named: "01-home (home)") else { return }
         settle()
+        // comeup P3: the gear is an icon-only button, so VoiceOver depends on its label.
+        XCTAssertTrue(app.buttons["Settings"].firstMatch.exists, "Settings gear lost its accessibility label")
         attachScreenshot(of: app, named: "01-home")
 
         // 02-recorder: Record a memory -> the recorder, with the demo engine's live text.
@@ -25,6 +27,9 @@ final class ScreenshotTests: XCTestCase {
         guard waitForScreen(stopButton, named: "02-recorder (recorder)") else { return }
         let liveText = labelled("smell of bread", in: app)
         guard waitForScreen(liveText, named: "02-recorder (live text)") else { return }
+        // comeup P1: the clock shows mm:ss (it counts recording time only).
+        let clock = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\d\d:\d\d")).firstMatch
+        XCTAssertTrue(clock.exists, "Recorder clock is missing")
         attachScreenshot(of: app, named: "02-recorder")
 
         // Stop returns to home (the demo capture has no audio, so nothing is auto-presented).
@@ -38,6 +43,8 @@ final class ScreenshotTests: XCTestCase {
         let storyPage = app.navigationBars["Summers at the lake house"].firstMatch
         guard waitForScreen(storyPage, named: "04-story (story page)") else { return }
         settle()
+        // comeup P3: the scrubber is labelled for VoiceOver.
+        XCTAssertTrue(app.sliders["Playback position"].firstMatch.exists, "Scrubber lost its accessibility label")
         attachScreenshot(of: app, named: "04-story")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
