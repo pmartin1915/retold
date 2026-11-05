@@ -44,9 +44,12 @@ final class ScreenshotTests: XCTestCase {
         guard waitForScreen(storyPage, named: "04-story (story page)") else { return }
         settle()
         // comeup P3: the scrubber is labelled for VoiceOver.
-        let scrubber = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == %@ OR identifier == %@", "Playback position", "Playback position")).firstMatch
-        XCTAssertTrue(scrubber.waitForExistence(timeout: 5), "Scrubber lost its accessibility label")
+        let scrubber = app.sliders.firstMatch
+        let hasScrubber = scrubber.waitForExistence(timeout: 5)
+        XCTAssertTrue(hasScrubber, "No slider on the story page")
+        if hasScrubber {
+            XCTAssertEqual(scrubber.label, "Playback position", "Scrubber label; value was \(String(describing: scrubber.value))")
+        }
         attachScreenshot(of: app, named: "04-story")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
