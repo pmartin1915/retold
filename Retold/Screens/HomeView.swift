@@ -33,8 +33,8 @@ struct HomeView: View {
     }
 
     var body: some View {
-        let periodsByID = Dictionary(uniqueKeysWithValues: periods.map { ($0.id, $0) })
-        let episodesByID = Dictionary(uniqueKeysWithValues: episodes.map { ($0.id, $0) })
+        let periodsByID = Dictionary(periods.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let episodesByID = Dictionary(episodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         NavigationStack {
             List {
                 Section {
@@ -295,9 +295,9 @@ struct EpisodeRow: View {
     let episode: Episode
 
     private var firstCapture: Capture? {
-        episode.captures.sorted { (a: Capture, b: Capture) -> Bool in
+        episode.captures.min { (a: Capture, b: Capture) -> Bool in
             (a.createdAt, a.id.uuidString) < (b.createdAt, b.id.uuidString)
-        }.first
+        }
     }
 
     var body: some View {
