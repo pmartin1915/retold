@@ -215,6 +215,9 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         for (category, mode) in attempts {
             do {
                 try session.setCategory(category, mode: mode)
+                // Without this iOS mutes haptics while an input session is active, so the
+                // start/stop feedback on the recorder would never be felt. Best effort.
+                try? session.setAllowHapticsAndSystemSoundsDuringRecording(true)
                 return
             } catch {
                 if firstError == nil { firstError = error }
