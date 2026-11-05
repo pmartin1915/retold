@@ -28,7 +28,7 @@ final class ScreenshotTests: XCTestCase {
         let liveText = labelled("smell of bread", in: app)
         guard waitForScreen(liveText, named: "02-recorder (live text)") else { return }
         // comeup P1: the clock shows mm:ss (it counts recording time only).
-        let clock = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\d\d:\d\d")).firstMatch
+        let clock = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\\d\\d:\\d\\d")).firstMatch
         XCTAssertTrue(clock.exists, "Recorder clock is missing")
         attachScreenshot(of: app, named: "02-recorder")
 
