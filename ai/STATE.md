@@ -6,7 +6,7 @@
 Retold 1.0 was pulled from review after the recorder failed on device (OSStatus -50); fixed in PRs #17-#19, then hardened in PR #20 (`d098c3a`: single-flight Record tap, Saving state, Done/Cancel, title hint). Version 1.0 in ASC is "Prepare for Submission". Build 14.1 (deploy run `41797235996`, main `d098c3a`) is processing in TestFlight; it replaces 13.1 on the version page. Add for Review and Submit are Perry's.
 
 ## Waiting on Perry
-- Record the 8-step device video on build 14.1 (not 13.1), attach it under App Review Information > Attachment, then submit. Steps are in `dev-ops/HANDOFF-2026-11-04-bw-review-retold-resubmit.md`. Perry doing it today (sitting 2026-11-05); tell a session when it is submitted so this line closes. (re-check 2026-11-06, Claude-set, sitting 2026-11-05)
+- Record the 8-step device video on build 14.1 (not 13.1), attach it under App Review Information > Attachment, then submit. Steps are in `dev-ops/HANDOFF-2026-11-04-bw-review-retold-resubmit.md`. Perry doing it today (sitting 2026-11-08); tell a session when it is submitted so this line closes. (re-check 2026-11-09, Claude-set, sitting 2026-11-08)
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
