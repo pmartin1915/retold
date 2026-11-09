@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import SwiftUI
 
 /// The one shared audio player (R7b section 2). A thin device adapter over AVAudioPlayer, so it
 /// has no unit tests; the device sitting checks it. One instance lives in RootView.
@@ -10,6 +11,14 @@ final class AudioPlayback {
     private(set) var isPlaying = false
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
+    /// comeup run 2: the capture whose last play attempt failed (decode, session or missing file),
+    /// so its row can say so instead of looking like a dead tap. Cleared by the next play.
+    private(set) var failedCaptureID: UUID?
+    /// Bumped on every failure, so a retry that fails again still triggers the error haptic.
+    private(set) var failureCount = 0
+    /// The capture that was failing when the current play() began (repeat failures, e.g. a slider
+    /// drag over a broken file, are not announced again).
+    @ObservationIgnored private var wasFailing: UUID?
 
     @ObservationIgnored private let files: CaptureFiles
     @ObservationIgnored private var player: AVAudioPlayer?
@@ -26,12 +35,15 @@ final class AudioPlayback {
 
     /// Plays `captureID`, from `time` if given. The same capture, loaded and paused, resumes
     /// (seeking first if `time` is given); a different capture loaded is stopped first. Any
-    /// failure (a missing file, a decode failure, a session error) stops quietly: no alert.
+    /// failure (a missing file, a decode failure, a session error) stops and sets
+    /// `failedCaptureID`; the row shows a line, not an alert.
     func play(_ captureID: UUID, from time: TimeInterval? = nil) {
+        wasFailing = failedCaptureID
+        failedCaptureID = nil
         if self.captureID == captureID, let player {
             if let time { seek(to: time) }
             guard player.play() else {
-                stop()
+                fail(captureID)
                 return
             }
             isPlaying = true
@@ -55,14 +67,25 @@ final class AudioPlayback {
                 newPlayer.currentTime = min(max(time, 0), newPlayer.duration)
             }
             guard newPlayer.play() else {
-                stop()
+                fail(captureID)
                 return
             }
             isPlaying = true
             currentTime = newPlayer.currentTime
             startUpdates()
         } catch {
-            stop()
+            fail(captureID)
+        }
+    }
+
+    private func fail(_ captureID: UUID) {
+        stop()
+        failedCaptureID = captureID
+        failureCount += 1
+        // Spoken here, once: several rows (Home under a pushed story page) may show the same
+        // capture, and a slider drag over a broken file would otherwise repeat it on every tick.
+        if wasFailing != captureID {
+            AccessibilityNotification.Announcement(AppCopy.playbackFailed).post()
         }
     }
 

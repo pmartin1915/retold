@@ -307,6 +307,8 @@ struct PlayPauseButton: View {
         .disabled(!playback.canPlay(captureID))
         .accessibilityLabel(isThisPlaying ? AppCopy.pauseButton : AppCopy.playButton)
         .sensoryFeedback(.impact(weight: .light), trigger: isThisPlaying)
+        // comeup run 2: a failed play is felt, not a dead tap (AudioPlayback announces it once).
+        .sensoryFeedback(.error, trigger: playback.failureCount) { _, _ in playback.failedCaptureID == captureID }
     }
 }
 
