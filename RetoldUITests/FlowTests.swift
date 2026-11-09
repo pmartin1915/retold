@@ -99,7 +99,13 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(folded.waitForExistence(timeout: 10), "No folded Questions row on the story page")
         XCTAssertFalse(app.buttons["Answer now"].exists, "Questions are not folded")
         folded.tap()
-        XCTAssertTrue(app.buttons["Answer now"].firstMatch.waitForExistence(timeout: 5), "Questions did not open")
+        // The list is lazy: opened offer rows below the fold exist only once scrolled into view.
+        let answer = app.buttons["Answer now"].firstMatch
+        for _ in 0..<4 {
+            if answer.waitForExistence(timeout: 2) { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(answer.waitForExistence(timeout: 2), "Questions did not open")
         settle(1.0)
         attach(app, named: "check-story-questions-open")
     }
