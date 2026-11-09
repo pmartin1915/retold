@@ -26,6 +26,8 @@ struct ConfirmView: View {
     @State private var selectedWhenValue: Int?
     @State private var newPersonName = ""
     @State private var newPlaceName = ""
+    /// comeup run 2: a failed File it used to do nothing visible.
+    @State private var fileFailed = false
 
     private enum WhenMode: Hashable {
         case year, age
@@ -67,6 +69,12 @@ struct ConfirmView: View {
                 }
             }
         }
+        .alert(AppCopy.saveFailedTitle, isPresented: $fileFailed) {
+            Button(AppCopy.okButton, role: .cancel) {}
+        } message: {
+            Text(AppCopy.saveFailedMessage)
+        }
+        .sensoryFeedback(.error, trigger: fileFailed) { _, failed in failed }
         .task {
             await load()
         }
@@ -525,7 +533,8 @@ struct ConfirmView: View {
             try ConfirmFiler.file(draft, capture: capture, in: modelContext)
             dismiss()
         } catch {
-            // Filing failures keep the unchanged draft on screen, per the R7a contract.
+            // Filing failures keep the unchanged draft on screen, per the R7a contract, and say so.
+            fileFailed = true
         }
     }
 }

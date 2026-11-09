@@ -46,7 +46,9 @@ enum AppCopy {
     /// R6b: recorder state label while interrupted.
     static let pausedLabel = "Paused"
     /// R6b: the store failed to open at launch.
-    static let startupFailed = "Retold could not open its storage. Restart the app to try again."
+    static let startupFailedTitle = "Retold could not start"
+    static let startupFailed = "Retold could not open its storage. Try again, or restart the app."
+    static let tryAgain = "Try again"
     /// R6b: home screen title (the week-0 scaffold's, moved here so views carry no literals).
     static let homeTitle = "Retold"
     static let homeEmptyTitle = "Your stories will gather here"
@@ -327,5 +329,7 @@ enum AppCopy {
         deleteRecordingMessage,
         deleteRecordingConfirm,
         deleteFailed,
+        startupFailedTitle,
+        tryAgain,
     ]
 }

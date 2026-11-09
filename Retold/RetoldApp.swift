@@ -6,13 +6,26 @@ import UIKit
 struct RetoldApp: App {
     @State private var services: LiveCapture.LiveCaptureServices?
     @State private var startupFailed = false
+    #if DEBUG
+    @MainActor private static var failedFirstStart = false
+    #endif
 
     var body: some Scene {
         WindowGroup {
             Group {
                 if startupFailed {
-                    Text(AppCopy.startupFailed)
-                        .padding()
+                    // comeup run 2: a designed error state with one action, not bare text.
+                    ContentUnavailableView {
+                        Label(AppCopy.startupFailedTitle, systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(AppCopy.startupFailed)
+                    } actions: {
+                        Button(AppCopy.tryAgain) {
+                            startupFailed = false
+                            startServices()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 } else if let services {
                     RootView(services: services)
                 } else {
@@ -20,23 +33,35 @@ struct RetoldApp: App {
                 }
             }
             .task {
-                guard services == nil, !startupFailed else { return }
-                do {
-                    #if DEBUG
-                    // `-RetoldDemo` (ScreenshotTests only) launches the seeded mock demo; everything
-                    // else is production. The Release build compiles only the production line below.
-                    if DemoMode.isActive {
-                        services = try DemoMode.makeServices()
-                    } else {
-                        services = try LiveCapture.makeCoordinator()
-                    }
-                    #else
-                    services = try LiveCapture.makeCoordinator()
-                    #endif
-                } catch {
-                    startupFailed = true
-                }
+                startServices()
             }
+        }
+    }
+
+    /// Opens storage and the capture services; a failure shows the error state, whose Try again
+    /// calls this again.
+    @MainActor
+    private func startServices() {
+        guard services == nil, !startupFailed else { return }
+        do {
+            #if DEBUG
+            // `-RetoldFailFirstStart` (FlowTests only) fails the first open, to exercise Try again.
+            if ProcessInfo.processInfo.arguments.contains("-RetoldFailFirstStart"), !Self.failedFirstStart {
+                Self.failedFirstStart = true
+                throw CocoaError(.fileReadUnknown)
+            }
+            // `-RetoldDemo` (ScreenshotTests only) launches the seeded mock demo; everything
+            // else is production. The Release build compiles only the production line below.
+            if DemoMode.isActive {
+                services = try DemoMode.makeServices()
+            } else {
+                services = try LiveCapture.makeCoordinator()
+            }
+            #else
+            services = try LiveCapture.makeCoordinator()
+            #endif
+        } catch {
+            startupFailed = true
         }
     }
 }
