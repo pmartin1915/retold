@@ -157,7 +157,8 @@ enum DemoMode {
     }
 
     /// A completed capture whose segments are `lines`, with a few placeholder bytes at its audio
-    /// path so the player row shows (playback itself is never exercised in demo mode).
+    /// path so the player row shows. The bytes do not decode, so Play takes the failure path
+    /// (FlowTests.testPlaybackFailureIsVisible relies on this).
     @MainActor
     private static func makeCapture(lines: [String], createdAt: Date, files: CaptureFiles) throws -> Capture {
         var segments: [TranscriptSegment] = []

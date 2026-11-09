@@ -74,40 +74,13 @@ struct EpisodeView: View {
             Text("\(capture.createdAt.formatted(date: .abbreviated, time: .shortened)) \u{00B7} \(ExportManifest.formatClock(capture.duration))")
                 .font(.subheadline)
             if playback.canPlay(capture.id) {
-                playerRow(capture)
+                PlayerRow(captureID: capture.id, duration: capture.duration)
             } else {
                 Text(AppCopy.audioMissing)
                     .foregroundStyle(.secondary)
             }
             transcript(capture)
         }
-    }
-
-    private func playerRow(_ capture: Capture) -> some View {
-        let isLoaded = playback.captureID == capture.id
-        return HStack {
-            PlayPauseButton(captureID: capture.id)
-            Slider(
-                value: Binding(
-                    get: { isLoaded ? playback.currentTime : 0 },
-                    set: { value in
-                        if playback.captureID == capture.id {
-                            playback.seek(to: value)
-                        } else {
-                            playback.play(capture.id, from: value)
-                        }
-                    }
-                ),
-                in: 0...max(capture.duration, 1)
-            )
-            .disabled(capture.duration <= 0)
-            .accessibilityLabel(AppCopy.playbackPosition)
-            .accessibilityValue("\(ExportManifest.formatClock(isLoaded ? playback.currentTime : 0)) / \(ExportManifest.formatClock(capture.duration))")
-            Text("\(ExportManifest.formatClock(isLoaded ? playback.currentTime : 0)) / \(ExportManifest.formatClock(capture.duration))")
-                .font(.footnote.monospacedDigit())
-                .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.borderless)
     }
 
     @ViewBuilder
@@ -130,5 +103,68 @@ struct EpisodeView: View {
                 .buttonStyle(.borderless)
             }
         }
+    }
+}
+
+/// comeup run 2: the play button, scrubber and clock. Only this view reads `currentTime`, so the
+/// 4 Hz playback tick redraws one row, not the whole story page. At accessibility text sizes the
+/// clock moves under the scrubber so the slider keeps its width.
+private struct PlayerRow: View {
+    let captureID: UUID
+    let duration: TimeInterval
+
+    @Environment(AudioPlayback.self) private var playback
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let isLoaded = playback.captureID == captureID
+        let clock = "\(ExportManifest.formatClock(isLoaded ? playback.currentTime : 0)) / \(ExportManifest.formatClock(duration))"
+        VStack(alignment: .leading, spacing: 4) {
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack {
+                    PlayPauseButton(captureID: captureID)
+                    slider(isLoaded: isLoaded, clock: clock)
+                }
+                clockText(clock)
+            } else {
+                HStack {
+                    PlayPauseButton(captureID: captureID)
+                    slider(isLoaded: isLoaded, clock: clock)
+                    clockText(clock)
+                }
+            }
+            if playback.failedCaptureID == captureID {
+                Text(AppCopy.playbackFailed)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private func slider(isLoaded: Bool, clock: String) -> some View {
+        Slider(
+            value: Binding(
+                get: { isLoaded ? playback.currentTime : 0 },
+                set: { value in
+                    if playback.captureID == captureID {
+                        playback.seek(to: value)
+                    } else {
+                        playback.play(captureID, from: value)
+                    }
+                }
+            ),
+            in: 0...max(duration, 1)
+        )
+        .disabled(duration <= 0)
+        .accessibilityLabel(AppCopy.playbackPosition)
+        .accessibilityValue(clock)
+    }
+
+    private func clockText(_ clock: String) -> some View {
+        Text(clock)
+            .font(.footnote.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
     }
 }

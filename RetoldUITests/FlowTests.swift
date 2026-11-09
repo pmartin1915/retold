@@ -56,6 +56,36 @@ final class FlowTests: XCTestCase {
         attach(app, named: "check-ax5-confirm")
     }
 
+    /// A recording that cannot play says so (comeup run 2 P4). The demo's audio files are four
+    /// placeholder bytes, so AVAudioPlayer cannot decode them: the failure path, every time.
+    /// Also shows the story page's new order (recordings before questions).
+    func testPlaybackFailureIsVisible() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-RetoldDemo"]
+        app.launch()
+
+        let story = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Summers at the lake house")).firstMatch
+        _ = story.waitForExistence(timeout: 10)
+        for _ in 0..<6 where !(story.exists && story.isHittable) {
+            app.swipeUp()
+        }
+        guard story.exists, story.isHittable else {
+            XCTFail("Demo story row not reachable")
+            return
+        }
+        story.tap()
+        settle(1.0)
+        attach(app, named: "check-story-order")
+
+        let play = app.buttons["Play"].firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 10), "Story page has no Play button")
+        play.tap()
+        let failure = app.staticTexts["This recording could not play. Try again in a moment."].firstMatch
+        XCTAssertTrue(failure.waitForExistence(timeout: 5), "Playback failure is not shown")
+        attach(app, named: "check-playback-failed")
+    }
+
     private func settle(_ seconds: TimeInterval) {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "settle")], timeout: seconds)
     }

@@ -194,6 +194,7 @@ enum AppCopy {
     static let noTranscript = "No transcript"
     /// R7b: state shown when a recording's audio file is gone.
     static let audioMissing = "The recording file is missing."
+    static let playbackFailed = "This recording could not play. Try again in a moment."
     /// R7b: play action.
     static let playButton = "Play"
     /// R7b: pause action.
@@ -238,6 +239,7 @@ enum AppCopy {
         startingLabel,
         savingLabel,
         playbackPosition,
+        playbackFailed,
         removeLabel,
         doneButton,
         titleNeededHint,
