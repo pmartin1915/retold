@@ -8,7 +8,6 @@ Retold 1.0 was pulled from review after the recorder failed on device (OSStatus 
 1.1 work on main: comeup run 2 merged PRs #26-#31 on 2026-11-09 (state clarity, terracotta accent and primary actions, layout, playback, Perry's veteran picks). None of it is in build 14.1. Scorecard: `ai/comeup/2026-11-09/scorecard.md`.
 
 ## Waiting on Perry
-- Close PR #25 (superseded by merged #26). The auto-mode permission check refused the close for the comeup lane. (Claude-set 2026-11-09)
 - Record the 8-step device video on build 14.1 (not 13.1), attach it under App Review Information > Attachment, then submit. Steps are in `dev-ops/HANDOFF-2026-11-04-bw-review-retold-resubmit.md`. Perry doing it today (sitting 2026-11-09, on Perry To-Do 7 PM); tell a session when it is submitted so this line closes. (re-check 2026-11-10, Claude-set, sitting 2026-11-09)
 
 ## Hard dates
