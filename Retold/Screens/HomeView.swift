@@ -37,19 +37,6 @@ struct HomeView: View {
         let episodesByID = Dictionary(episodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         NavigationStack {
             List {
-                Section {
-                    Button(AppCopy.recordButton) {
-                        // Stop playback (deactivating) before the capture starts, while the phase is .idle.
-                        playback.stop()
-                        Task { @MainActor in
-                            await coordinator.startCapture(answering: nil)
-                            // A denied microphone used to do nothing visible.
-                            if case .blocked = coordinator.state.phase, coordinator.state.permission == .denied {
-                                micBlocked = true
-                            }
-                        }
-                    }
-                }
                 if !unfiledCaptures.isEmpty {
                     Section(AppCopy.unfiledHeader) {
                         ForEach(unfiledCaptures) { capture in
@@ -88,6 +75,15 @@ struct HomeView: View {
                         }
                     }
                 }
+            }
+            // comeup run 2: the app's one primary action is a filled accent button in thumb reach,
+            // not a list row with the same weight as every other row.
+            .primaryActionBar {
+                Button(action: startRecording) {
+                    Label(AppCopy.recordButton, systemImage: "mic.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .primaryAction()
             }
             .navigationTitle(AppCopy.homeTitle)
             .toolbar {
@@ -166,6 +162,18 @@ struct HomeView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 _ = try? AnswerAttacher.attachPending(in: modelContext)
+            }
+        }
+    }
+
+    private func startRecording() {
+        // Stop playback (deactivating) before the capture starts, while the phase is .idle.
+        playback.stop()
+        Task { @MainActor in
+            await coordinator.startCapture(answering: nil)
+            // A denied microphone used to do nothing visible.
+            if case .blocked = coordinator.state.phase, coordinator.state.permission == .denied {
+                micBlocked = true
             }
         }
     }
