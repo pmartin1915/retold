@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44">
+  <!-- Replay loop around three voice bars: a story told again, spoken. Family line (terracotta).
+       Chosen by Perry 2026-10-21; replaced the brown serif "R" icon, which is kept for other branding. -->
+  <g fill="none" stroke="#E07A50" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32.4 28 A12 12 0 1 1 33.2 17"/>
+    <path d="M34.6 11.4 L33.2 17 L27.6 15.8"/>
+    <path d="M17 19.5 V24.5"/>
+    <path d="M22 16.5 V27.5"/>
+    <path d="M27 20 V24"/>
+  </g>
+</svg>

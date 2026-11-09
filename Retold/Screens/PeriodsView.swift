@@ -19,7 +19,7 @@ struct PeriodsView: View {
                 Button(period.title) {
                     sheet = .rename(period)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             Button(AppCopy.addPeriod) {
                 sheet = .add

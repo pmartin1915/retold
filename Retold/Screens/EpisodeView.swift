@@ -27,10 +27,17 @@ struct EpisodeView: View {
                     captureBlock(capture)
                 }
             }
-            OfferSection(
-                offers: QuestionEngine.queue(for: EpisodeState(episode: episode)),
-                target: .episode(episode)
-            )
+            // comeup run 2, V5 (Perry's pick): the questions fold into one row under the recordings.
+            let offers = QuestionEngine.queue(for: EpisodeState(episode: episode))
+            if !offers.isEmpty {
+                Section {
+                    DisclosureGroup("\(AppCopy.questionsHeader) (\(offers.count))") {
+                        ForEach(Array(offers.enumerated()), id: \.offset) { _, offer in
+                            OfferRow(offer: offer, target: .episode(episode))
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(facts.title ?? AppCopy.untitled)
         .navigationBarTitleDisplayMode(.inline)

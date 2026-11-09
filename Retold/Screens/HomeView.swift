@@ -24,6 +24,9 @@ struct HomeView: View {
     @State private var pendingDeleteID: UUID?
     @State private var deleteFailed = false
     @State private var micBlocked = false
+    /// comeup run 2, V2: the title just filed, shown briefly as a pill (BoardBound EarnToast.tsx).
+    @State private var filedTitle: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var sections: [TimelineSection] {
         Timeline.sections(
@@ -123,7 +126,31 @@ struct HomeView: View {
                 answeredPeriodID: selectedAnsweredPeriodID
             ) { outcome in
                 outcomes[capture.id] = outcome
+            } onFiled: { title in
+                filedTitle = title
+                AccessibilityNotification.Announcement("\(AppCopy.filedLabel): \(title)").post()
             }
+        }
+        .overlay(alignment: .top) {
+            if let filedTitle {
+                Label("\(AppCopy.filedLabel): \(filedTitle)", systemImage: "checkmark.circle.fill")
+                    .lineLimit(1)
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, DesignTokens.Spacing.l)
+                    .padding(.vertical, DesignTokens.Spacing.s)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.horizontal, DesignTokens.Spacing.l)
+                    .padding(.top, DesignTokens.Spacing.s)
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: filedTitle)
+        .sensoryFeedback(.success, trigger: filedTitle) { _, new in new != nil }
+        .task(id: filedTitle) {
+            guard filedTitle != nil else { return }
+            // A cancelled sleep means a newer title replaced this one: leave it showing.
+            do { try await Task.sleep(for: .seconds(2.5)) } catch { return }
+            filedTitle = nil
         }
         .confirmationDialog(
             AppCopy.deleteRecordingTitle,
@@ -205,21 +232,21 @@ struct HomeView: View {
             } label: {
                 captureRow(capture, detail: AppCopy.transcribingLabel)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         case .ready(let excerpt):
             Button {
                 present(capture)
             } label: {
                 captureRow(capture, detail: excerpt)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         case .noTranscript:
             Button {
                 present(capture)
             } label: {
                 captureRow(capture, detail: AppCopy.noTranscriptLabel)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
     }
 
