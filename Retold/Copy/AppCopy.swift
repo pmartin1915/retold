@@ -51,6 +51,9 @@ enum AppCopy {
     static let tryAgain = "Try again"
     /// R6b: home screen title (the week-0 scaffold's, moved here so views carry no literals).
     static let homeTitle = "Retold"
+    static let homeEmptyTitle = "Your stories will gather here"
+    static let homeEmptyMessage = "Tap Record a memory and tell one story, in your own words."
+    static let browseHeader = "Browse"
     /// R6b spec 7a: the recorder banner after 20 minutes of recording.
     static let lengthWarning = "Retold stops this recording at 30 minutes."
 
@@ -241,6 +244,9 @@ enum AppCopy {
         pausedLabel,
         startupFailed,
         homeTitle,
+        homeEmptyTitle,
+        homeEmptyMessage,
+        browseHeader,
         lengthWarning,
         unfiledHeader,
         transcribingLabel,

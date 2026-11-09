@@ -68,7 +68,8 @@ final class ScreenshotTests: XCTestCase {
         let unfiled = labelled("Grandpa Joe taught me", in: app)
         guard scrollTo(unfiled, in: app, named: "03-confirm (unfiled row)") else { return }
         unfiled.tap()
-        let suggestion = app.buttons["Use this"].firstMatch
+        // Accept buttons are labelled "Use this: <the words>" for VoiceOver (comeup run 2).
+        let suggestion = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Use this")).firstMatch
         guard waitForScreen(suggestion, named: "03-confirm (confirm with suggestions)") else { return }
         settle()
         attachScreenshot(of: app, named: "03-confirm")
