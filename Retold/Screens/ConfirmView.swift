@@ -12,6 +12,7 @@ struct ConfirmView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = true
     @Query(sort: \Period.sortOrder) private var periods: [Period]
     @Query(sort: \Person.name) private var people: [Person]
@@ -103,7 +104,7 @@ struct ConfirmView: View {
                 }
                 TextField(AppCopy.titlePlaceholder, text: Binding(
                     get: { draft?.typedTitle ?? "" },
-                    set: { value in mutateDraft { $0.typedTitle = value } }
+                    set: { value in mutateDraft(animated: false) { $0.typedTitle = value } }
                 ))
                 if !current.canFile {
                     Text(AppCopy.titleNeededHint)
@@ -115,21 +116,14 @@ struct ConfirmView: View {
             Section(AppCopy.periodHeader) {
                 if let suggested = current.suggestedPeriod,
                    current.periodSuggestionState != .rejected {
-                    HStack {
-                        Text(suggested.title)
-                        if current.periodSuggestionState == .suggested {
-                            Text(AppCopy.suggestedLabel)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button(AppCopy.acceptButton) {
-                            mutateDraft { $0.acceptSuggestedPeriod() }
-                        }
-                        Button(AppCopy.rejectButton) {
-                            mutateDraft { $0.rejectSuggestedPeriod() }
-                        }
+                    suggestionRow(
+                        text: suggested.title,
+                        isSuggested: current.periodSuggestionState == .suggested
+                    ) {
+                        mutateDraft { $0.acceptSuggestedPeriod() }
+                    } reject: {
+                        mutateDraft { $0.rejectSuggestedPeriod() }
                     }
-                    .buttonStyle(.borderless)
                 }
                 Picker(AppCopy.periodHeader, selection: periodSelection) {
                     Text(AppCopy.noPeriod).tag(PeriodPickerValue.none)
@@ -144,7 +138,7 @@ struct ConfirmView: View {
                             if case .new(let title)? = draft?.periodPick { return title }
                             return ""
                         },
-                        set: { title in mutateDraft { $0.pick(.new(title)) } }
+                        set: { title in mutateDraft(animated: false) { $0.pick(.new(title)) } }
                     ))
                 }
             }
@@ -323,22 +317,45 @@ struct ConfirmView: View {
         accept: @escaping () -> Void,
         reject: @escaping () -> Void
     ) -> some View {
-        HStack {
-            Text(chip.span.text)
-            if chip.state == .suggested {
-                Text(AppCopy.suggestedLabel)
-                    .foregroundStyle(.secondary)
+        suggestionRow(text: chip.span.text, isSuggested: chip.state == .suggested, accept: accept, reject: reject)
+    }
+
+    /// comeup run 2: the user's words get the full row width; the actions sit on their own line
+    /// (they used to squeeze the words into a three-line column). VoiceOver names what each acts on.
+    private func suggestionRow(
+        text: String,
+        isSuggested: Bool,
+        accept: @escaping () -> Void,
+        reject: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if isSuggested {
+                    Text(AppCopy.suggestedLabel)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Spacer()
-            // The frame sits inside the label: a frame outside a borderless Button grows the row, not the tap area.
-            Button(action: accept) {
-                Text(AppCopy.acceptButton).frame(minHeight: 44).contentShape(Rectangle())
-            }
-            Button(action: reject) {
-                Text(AppCopy.rejectButton).frame(minHeight: 44).contentShape(Rectangle())
+            HStack(spacing: DesignTokens.Spacing.s) {
+                Button(action: accept) {
+                    Label(AppCopy.acceptButton, systemImage: "checkmark")
+                        .frame(minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .tint(.accentColor)
+                .accessibilityLabel("\(AppCopy.acceptButton): \(text)")
+                Button(action: reject) {
+                    Label(AppCopy.rejectButton, systemImage: "xmark")
+                        .frame(minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .tint(.gray)
+                .accessibilityLabel("\(AppCopy.rejectButton): \(text)")
             }
         }
-        .buttonStyle(.borderless)
+        .padding(.vertical, 4)
     }
 
     private func choiceButton(
@@ -353,6 +370,8 @@ struct ConfirmView: View {
                 }
                 Text(title)
             }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
     }
@@ -391,10 +410,16 @@ struct ConfirmView: View {
         }
     }
 
-    private func mutateDraft(_ mutation: (inout ConfirmDraft) -> Void) {
+    /// Animated by default so rows that appear or vanish (a picker, a "Same as" choice) do not
+    /// jump; typing passes `animated: false`. Reduce Motion turns the animation off.
+    private func mutateDraft(animated: Bool = true, _ mutation: (inout ConfirmDraft) -> Void) {
         guard var value = draft else { return }
         mutation(&value)
-        draft = value
+        if animated && !reduceMotion {
+            withAnimation(.smooth(duration: 0.25)) { draft = value }
+        } else {
+            draft = value
+        }
     }
 
     @MainActor

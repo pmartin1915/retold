@@ -11,22 +11,29 @@ struct EpisodeView: View {
     var body: some View {
         let facts = EpisodeFacts(episode: episode)
         List {
-            if hasFacts(facts) {
-                Section {
+            // comeup run 2: the full title wraps here; the inline nav title may truncate.
+            Section {
+                Text(facts.title ?? AppCopy.untitled)
+                    .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
+                if hasFacts(facts) {
                     factRows(facts)
+                }
+            }
+            // The user's own voice and words come before the questions (screenshot 04-story had
+            // them below the fold under five offers).
+            Section(AppCopy.recordingsHeader) {
+                ForEach(sortedCaptures) { capture in
+                    captureBlock(capture)
                 }
             }
             OfferSection(
                 offers: QuestionEngine.queue(for: EpisodeState(episode: episode)),
                 target: .episode(episode)
             )
-            Section(AppCopy.recordingsHeader) {
-                ForEach(sortedCaptures) { capture in
-                    captureBlock(capture)
-                }
-            }
         }
         .navigationTitle(facts.title ?? AppCopy.untitled)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var sortedCaptures: [Capture] {

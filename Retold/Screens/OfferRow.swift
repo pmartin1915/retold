@@ -19,13 +19,18 @@ struct OfferRow: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(offer.question.text)
             HStack {
-                Button(AppCopy.answerNow) {
+                // comeup run 2: 44 pt tap height (house style rule 4); the frame sits inside the label.
+                Button {
                     answerNow()
+                } label: {
+                    Text(AppCopy.answerNow).frame(minHeight: 44).contentShape(Rectangle())
                 }
                 // .dontRemember does nothing on broad.open (Question.record), as on the confirm screen.
                 if offer.question.templateID != "broad.open" {
-                    Button(AppCopy.notThisOne) {
+                    Button {
                         notThisOne()
+                    } label: {
+                        Text(AppCopy.notThisOne).frame(minHeight: 44).contentShape(Rectangle())
                     }
                 }
             }

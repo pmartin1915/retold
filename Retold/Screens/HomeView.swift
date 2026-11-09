@@ -48,12 +48,16 @@ struct HomeView: View {
                         }
                     }
                 }
-                Section {
-                    NavigationLink(AppCopy.peopleHeader, destination: PeopleView())
-                    NavigationLink(AppCopy.placesTitle, destination: PlacesView())
-                    NavigationLink(AppCopy.themesTitle, destination: ThemesView())
-                    NavigationLink(AppCopy.periodsTitle, destination: PeriodsView())
-                    NavigationLink(AppCopy.setAsideTitle, destination: SetAsideView())
+                // comeup run 2: an empty library says what will appear here (house style rule 12).
+                // Periods stay below it: an empty period's page is where its opener lives.
+                if unfiledCaptures.isEmpty && episodes.isEmpty {
+                    Section {
+                        ContentUnavailableView {
+                            Label(AppCopy.homeEmptyTitle, systemImage: "waveform")
+                        } description: {
+                            Text(AppCopy.homeEmptyMessage)
+                        }
+                    }
                 }
                 ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
                     Section {
@@ -74,6 +78,14 @@ struct HomeView: View {
                             }
                         }
                     }
+                }
+                // comeup run 2: browse links come after the user's own stories, not above them.
+                Section(AppCopy.browseHeader) {
+                    NavigationLink(AppCopy.peopleHeader, destination: PeopleView())
+                    NavigationLink(AppCopy.placesTitle, destination: PlacesView())
+                    NavigationLink(AppCopy.themesTitle, destination: ThemesView())
+                    NavigationLink(AppCopy.periodsTitle, destination: PeriodsView())
+                    NavigationLink(AppCopy.setAsideTitle, destination: SetAsideView())
                 }
             }
             // comeup run 2: the app's one primary action is a filled accent button in thumb reach,
