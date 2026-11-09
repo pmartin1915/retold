@@ -86,6 +86,69 @@ final class FlowTests: XCTestCase {
         attach(app, named: "check-playback-failed")
     }
 
+    /// V5 (Perry's pick): the story page folds its questions into one "Questions (n)" row under the
+    /// recordings; opening it shows the offers.
+    func testStoryQuestionsFoldIntoOneRow() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-RetoldDemo"]
+        app.launch()
+        guard openStory(in: app) else { return }
+
+        let folded = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Questions (")).firstMatch
+        XCTAssertTrue(folded.waitForExistence(timeout: 10), "No folded Questions row on the story page")
+        XCTAssertFalse(app.buttons["Answer now"].exists, "Questions are not folded")
+        folded.tap()
+        // The list is lazy: opened offer rows below the fold exist only once scrolled into view.
+        let answer = app.buttons["Answer now"].firstMatch
+        for _ in 0..<4 {
+            if answer.waitForExistence(timeout: 2) { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(answer.waitForExistence(timeout: 2), "Questions did not open")
+        settle(1.0)
+        attach(app, named: "check-story-questions-open")
+    }
+
+    /// V2 (Perry's pick): File it shows a brief "Filed: <title>" pill on Home.
+    func testFilingShowsFiledPill() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-RetoldDemo"]
+        app.launch()
+
+        let unfiled = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Grandpa Joe taught me")).firstMatch
+        XCTAssertTrue(unfiled.waitForExistence(timeout: 10), "Unfiled demo row missing")
+        unfiled.tap()
+        let useTitle = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Use this")).firstMatch
+        XCTAssertTrue(useTitle.waitForExistence(timeout: 15), "Confirm sheet has no suggestion")
+        useTitle.tap()
+        let fileButton = app.buttons["File it"].firstMatch
+        XCTAssertTrue(fileButton.waitForExistence(timeout: 5), "No File it button")
+        fileButton.tap()
+        let pill = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Filed: ")).firstMatch
+        XCTAssertTrue(pill.waitForExistence(timeout: 5), "No Filed pill after File it")
+        attach(app, named: "check-filed-pill")
+    }
+
+    /// Opens the demo story "Summers at the lake house" from Home.
+    private func openStory(in app: XCUIApplication) -> Bool {
+        let story = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Summers at the lake house")).firstMatch
+        _ = story.waitForExistence(timeout: 10)
+        for _ in 0..<6 where !(story.exists && story.isHittable) {
+            app.swipeUp()
+        }
+        guard story.exists, story.isHittable else {
+            XCTFail("Demo story row not reachable")
+            return false
+        }
+        story.tap()
+        settle(1.0)
+        return true
+    }
+
     private func settle(_ seconds: TimeInterval) {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "settle")], timeout: seconds)
     }

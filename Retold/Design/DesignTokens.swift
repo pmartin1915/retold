@@ -41,3 +41,27 @@ extension View {
         }
     }
 }
+
+/// comeup run 2, V1 (Perry's pick; BoardBound OptionButton.tsx:71): a custom row button gets a
+/// press state, a quick spring to 0.97 and back. Reduce Motion keeps only the dimming.
+struct PressableRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PressableBody(configuration: configuration)
+    }
+
+    private struct PressableBody: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+                .opacity(configuration.isPressed ? 0.8 : 1)
+                .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.3), value: configuration.isPressed)
+        }
+    }
+}
+
+extension ButtonStyle where Self == PressableRowStyle {
+    static var pressable: PressableRowStyle { PressableRowStyle() }
+}

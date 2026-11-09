@@ -51,6 +51,7 @@ enum AppCopy {
     static let tryAgain = "Try again"
     /// R6b: home screen title (the week-0 scaffold's, moved here so views carry no literals).
     static let homeTitle = "Retold"
+    static let filedLabel = "Filed"
     static let homeEmptyTitle = "Your stories will gather here"
     static let homeEmptyMessage = "Tap Record a memory and tell one story, in your own words."
     static let browseHeader = "Browse"
@@ -246,6 +247,7 @@ enum AppCopy {
         pausedLabel,
         startupFailed,
         homeTitle,
+        filedLabel,
         homeEmptyTitle,
         homeEmptyMessage,
         browseHeader,

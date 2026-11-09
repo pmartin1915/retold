@@ -29,7 +29,7 @@ struct RetoldApp: App {
                 } else if let services {
                     RootView(services: services)
                 } else {
-                    ProgressView()
+                    LaunchView()
                 }
             }
             .task {
@@ -62,6 +62,25 @@ struct RetoldApp: App {
             #endif
         } catch {
             startupFailed = true
+        }
+    }
+}
+
+/// comeup run 2, V3 (Perry's pick; BoardBound BrandedSplash.tsx): the mark and name on the
+/// family-line accent while storage opens, instead of a bare spinner. No timed delay: it shows only
+/// as long as startServices() takes.
+private struct LaunchView: View {
+    var body: some View {
+        VStack(spacing: DesignTokens.Spacing.l) {
+            Image("RetoldMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 88, height: 88)
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            Text(AppCopy.homeTitle)
+                .font(.largeTitle.bold())
+            ProgressView()
         }
     }
 }

@@ -9,6 +9,8 @@ struct ConfirmView: View {
     /// R7b: the period of the question this capture answers, if any; pre-picked in the draft.
     let answeredPeriodID: UUID?
     let onOutcome: (FilingOutcome) -> Void
+    /// comeup run 2, V2: called with the filed title after a successful File it (Home shows a pill).
+    var onFiled: (String) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -28,6 +30,8 @@ struct ConfirmView: View {
     @State private var newPlaceName = ""
     /// comeup run 2: a failed File it used to do nothing visible.
     @State private var fileFailed = false
+    /// comeup run 2, V1: bumped by Use this / Not this / choice taps for a selection haptic.
+    @State private var choiceTick = 0
 
     private enum WhenMode: Hashable {
         case year, age
@@ -75,6 +79,7 @@ struct ConfirmView: View {
             Text(AppCopy.saveFailedMessage)
         }
         .sensoryFeedback(.error, trigger: fileFailed) { _, failed in failed }
+        .sensoryFeedback(.selection, trigger: choiceTick)
         .task {
             await load()
         }
@@ -347,14 +352,20 @@ struct ConfirmView: View {
                 }
             }
             HStack(spacing: DesignTokens.Spacing.s) {
-                Button(action: accept) {
+                Button {
+                    accept()
+                    choiceTick += 1
+                } label: {
                     Label(AppCopy.acceptButton, systemImage: "checkmark")
                         .frame(minHeight: 32)
                 }
                 .buttonStyle(.bordered)
                 .tint(.accentColor)
                 .accessibilityLabel("\(AppCopy.acceptButton): \(text)")
-                Button(action: reject) {
+                Button {
+                    reject()
+                    choiceTick += 1
+                } label: {
                     Label(AppCopy.rejectButton, systemImage: "xmark")
                         .frame(minHeight: 32)
                 }
@@ -371,7 +382,10 @@ struct ConfirmView: View {
         selected: Bool,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            action()
+            choiceTick += 1
+        } label: {
             HStack {
                 if selected {
                     Image(systemName: "checkmark")
@@ -531,6 +545,11 @@ struct ConfirmView: View {
         guard let draft else { return }
         do {
             try ConfirmFiler.file(draft, capture: capture, in: modelContext)
+            switch draft.resolvedTitle {
+            case .typed(let title)?: onFiled(title)
+            case .quote(let span)?: onFiled(span.text)
+            case nil: break
+            }
             dismiss()
         } catch {
             // Filing failures keep the unchanged draft on screen, per the R7a contract, and say so.
