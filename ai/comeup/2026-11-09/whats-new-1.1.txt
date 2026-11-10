@@ -1,0 +1,6 @@
+• A warmer look: a terracotta accent, one clear main button (Record, then Stop or Resume) within thumb reach, and a launch screen instead of a bare spinner.
+• Clearer when something goes wrong: if filing a story or starting the app fails, Retold now says so and offers Try again; filing shows a "Filed" note when it works.
+• A friendlier empty Home, and your stories now come first on the page.
+• Better playback: it shows and tells you if a recording can't play, and scrolls less jerkily.
+• Easier at large text sizes and with VoiceOver, with bigger tap targets and clearer button labels.
+• Gentle motion: the recording dot pulses and buttons give a small press response, all off when Reduce Motion is on.
