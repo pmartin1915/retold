@@ -1,0 +1,21 @@
+APP 6819052835 Retold: Life Stories, Spoken dev.pmartin1915.retold
+
+BUILDS (newest 8)
+  build 15.1  VALID  expired=False  uploaded=2026-11-09T17:28:10-08:00
+  build 14.1  VALID  expired=False  uploaded=2026-11-04T00:14:58-08:00
+  build 13.1  VALID  expired=False  uploaded=2026-11-03T21:52:54-08:00
+  build 12.1  VALID  expired=False  uploaded=2026-11-03T15:00:30-08:00
+  build 11.1  VALID  expired=False  uploaded=2026-11-03T14:40:01-08:00
+  build 10.1  VALID  expired=False  uploaded=2026-11-03T14:09:29-08:00
+  build 9.1  VALID  expired=False  uploaded=2026-10-20T23:08:44-07:00
+  build 8.1  VALID  expired=False  uploaded=2026-10-19T23:14:17-07:00
+
+VERSIONS
+
+  1.0  READY_FOR_REVIEW  release=MANUAL
+   attached build: 14.1
+   [en-US] whatsNew 0 chars: ''
+     APP_IPHONE_67: 5 shots
+   review notes 1968 chars; contact set: True; demo req: False
+
+preflight OK (console-only items not checked: App Privacy publish, age rating, med-device declaration)
