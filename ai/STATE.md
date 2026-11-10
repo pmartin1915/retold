@@ -1,14 +1,14 @@
 # STATE: retold (NOW)
 
-**Updated 2026-11-09.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
+**Updated 2026-11-10.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
 
 ## Critical path
-Retold 1.0 was pulled from review after the recorder failed on device (OSStatus -50); fixed in PRs #17-#19, then hardened in PR #20 (`d098c3a`: single-flight Record tap, Saving state, Done/Cancel, title hint). Version 1.0 in ASC is "Prepare for Submission". Build 14.1 (deploy run `41797235996`, main `d098c3a`) is processing in TestFlight; it replaces 13.1 on the version page. Add for Review and Submit are Perry's.
+**PARKED 2026-11-10 (Perry): 1.0 will not be filed.** He could not file it, and on device the transcription misheard words, dropped chunks of speech, and lagged. Next step is a redesign + transcription-quality lane, started once the other ship-wave apps (Tellfolk, BoardBound, Burn Wizard) are uploaded and done. ASC 1.0 (build 14.1) stays READY_FOR_REVIEW and unsubmitted; 1.1.0 build 15.1 is on TestFlight. The engine is already iOS 26 `SpeechTranscriber` (`Retold/Capture/Device/SpeechModules.swift`), so the lane tunes it (file re-pass over saved audio, custom vocabulary via the analysis context, the 1.1 corrections UI from IDEAS 2026-10-04) rather than swapping engines.
 
 1.1 work on main: comeup run 2 merged PRs #26-#31 on 2026-11-09 (state clarity, terracotta accent and primary actions, layout, playback, Perry's veteran picks). None of it is in build 14.1. Scorecard: `ai/comeup/2026-11-09/scorecard.md`.
 
 ## Waiting on Perry
-- Record the 8-step device video on build 14.1 (not 13.1), attach it under App Review Information > Attachment, then submit. Steps are in `dev-ops/HANDOFF-2026-11-04-bw-review-retold-resubmit.md`. Perry doing it today (sitting 2026-11-09, on Perry To-Do 7 PM); tell a session when it is submitted so this line closes. (re-check 2026-11-10, Claude-set, sitting 2026-11-09)
+- Nothing. (Device video line closed 2026-11-10: Perry parked 1.0, see Critical path.)
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
