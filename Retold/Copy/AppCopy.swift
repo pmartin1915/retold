@@ -74,6 +74,16 @@ enum AppCopy {
     static let suggestedLabel = "suggested"
     /// R7a: accepts a suggested value.
     static let acceptButton = "Use this"
+    /// Confirm flow: the accept button once the suggestion is in use (comeup run 3).
+    static let acceptedButton = "Using this"
+    /// Confirm flow: header over the recording's own words, above the title (comeup run 3).
+    static let whatYouSaidHeader = "What you said"
+    /// Confirm flow: the fold over people, places and questions for later (comeup run 3, F4).
+    static let moreDetails = "More details"
+    /// Confirm flow: how many suggestions wait inside the fold.
+    static func suggestionsWaiting(_ count: Int) -> String {
+        count == 1 ? "1 suggestion" : "\(count) suggestions"
+    }
     /// R7a: rejects a suggested value.
     static let rejectButton = "Not this"
     /// R7a: confirm-flow title section.
@@ -271,6 +281,11 @@ enum AppCopy {
         fileButton,
         suggestedLabel,
         acceptButton,
+        acceptedButton,
+        whatYouSaidHeader,
+        moreDetails,
+        suggestionsWaiting(1),
+        suggestionsWaiting(2),
         rejectButton,
         titleHeader,
         titlePlaceholder,
