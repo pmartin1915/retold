@@ -39,6 +39,8 @@ enum AppCopy {
     static let liveTextPlaceholder = "Start talking whenever you’re ready. Your words will appear here."
     /// VoiceOver label for the playback scrubber.
     static let playbackPosition = "Playback position"
+    /// VoiceOver hint on a transcript line: tapping plays the recording from there (comeup run 3).
+    static let seekHint = "Plays the recording from this line."
     /// VoiceOver label prefix for a remove (trash) button; the item name follows.
     static let removeLabel = "Remove"
     /// Settings sheet dismiss button.
@@ -82,6 +84,10 @@ enum AppCopy {
     static let periodHeader = "Period"
     /// R7a: period picker option for no period.
     static let noPeriod = "Not in a period"
+    /// Home: under a period's name when it holds no stories yet (comeup run 3).
+    static let noStoriesYet = "No stories yet"
+    /// Home: under a period's name, how many stories it holds.
+    static func storyCount(_ count: Int) -> String { count == 1 ? "1 story" : "\(count) stories" }
     /// R7a: period picker option for a new period.
     static let newPeriod = "New period…"
     /// R7a: prompt for a new period title.
@@ -241,7 +247,12 @@ enum AppCopy {
         recordingLabel,
         startingLabel,
         savingLabel,
+        liveTextPlaceholder,
+        noStoriesYet,
+        storyCount(1),
+        storyCount(2),
         playbackPosition,
+        seekHint,
         playbackFailed,
         removeLabel,
         doneButton,
