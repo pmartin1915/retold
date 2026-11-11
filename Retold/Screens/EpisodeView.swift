@@ -15,7 +15,9 @@ struct EpisodeView: View {
             Section {
                 Text(facts.title ?? AppCopy.untitled)
                     .font(.title2.bold())
+                    .fontDesign(DesignTokens.wordsFontDesign)
                     .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("storyTitle")
                 if hasFacts(facts) {
                     factRows(facts)
                 }
@@ -39,8 +41,11 @@ struct EpisodeView: View {
                 }
             }
         }
+        // The title stays the navigation title (back buttons and VoiceOver use it), but the bar
+        // shows nothing: the wrapping header above is the one visible title (comeup run 3, C11).
         .navigationTitle(facts.title ?? AppCopy.untitled)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(removing: .title)
     }
 
     private var sortedCaptures: [Capture] {
@@ -62,24 +67,37 @@ struct EpisodeView: View {
         if let when = facts.whenDisplay {
             LabeledContent(AppCopy.whenHeader, value: when)
         }
+        // comeup run 3 (C10): a place or a person says which it is before anyone taps it.
         if let ref = facts.place, let place = episode.place {
-            NavigationLink(ref.name, destination: PlaceView(place: place))
+            NavigationLink(destination: PlaceView(place: place)) {
+                Label(ref.name, systemImage: "mappin.and.ellipse")
+            }
         }
         ForEach(facts.people, id: \.id) { ref in
             if let person = episode.people.first(where: { $0.id == ref.id }) {
-                NavigationLink(ref.name, destination: PersonView(person: person))
+                NavigationLink(destination: PersonView(person: person)) {
+                    Label(ref.name, systemImage: "person")
+                }
             }
         }
         ForEach(Array(facts.details.enumerated()), id: \.offset) { _, text in
-            Text("\u{201C}\(text)\u{201D}")
+            Label {
+                Text("\u{201C}\(text)\u{201D}")
+                    .italic()
+                    .fontDesign(DesignTokens.wordsFontDesign)
+            } icon: {
+                Image(systemName: "quote.opening")
+            }
+            .foregroundStyle(.secondary)
         }
     }
 
     @ViewBuilder
     private func captureBlock(_ capture: Capture) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
             Text("\(capture.createdAt.formatted(date: .abbreviated, time: .shortened)) \u{00B7} \(ExportManifest.formatClock(capture.duration))")
                 .font(.subheadline)
+                .foregroundStyle(.secondary)
             if playback.canPlay(capture.id) {
                 PlayerRow(captureID: capture.id, duration: capture.duration)
             } else {
@@ -100,14 +118,29 @@ struct EpisodeView: View {
             Text(AppCopy.noTranscript)
                 .foregroundStyle(.secondary)
         case .segments(let segments):
+            // comeup run 3 (C9): each line is tap-to-seek, so its time carries the accent as the cue;
+            // the words are primary text in the serif face, leading-aligned under each other.
             ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                 Button {
                     playback.play(capture.id, from: segment.start)
                 } label: {
-                    Text("\(ExportManifest.formatClock(segment.start))  \(segment.text)")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.m) {
+                        Text(ExportManifest.formatClock(segment.start))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.tint)
+                        Text(segment.text)
+                            .fontDesign(DesignTokens.wordsFontDesign)
+                            // Color.primary, not .primary: inside a borderless button .primary
+                            // resolves to the button's tint (seen in run 3's first screenshots).
+                            .foregroundStyle(Color.primary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("\(ExportManifest.formatClock(segment.start)), \(segment.text)")
+                .accessibilityHint(AppCopy.seekHint)
             }
         }
     }

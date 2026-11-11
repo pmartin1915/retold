@@ -15,6 +15,7 @@ struct ConfirmView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = true
     @Query(sort: \Period.sortOrder) private var periods: [Period]
     @Query(sort: \Person.name) private var people: [Person]
@@ -32,6 +33,9 @@ struct ConfirmView: View {
     @State private var fileFailed = false
     /// comeup run 2, V1: bumped by Use this / Not this / choice taps for a selection haptic.
     @State private var choiceTick = 0
+    /// comeup run 3 (F4, Perry's pick): people, places and questions for later sit behind a fold,
+    /// so the File it bar is near the top. Opened by the user; suggestions inside are counted.
+    @State private var showMoreDetails = false
 
     private enum WhenMode: Hashable {
         case year, age
@@ -48,28 +52,40 @@ struct ConfirmView: View {
             Group {
                 if let current = draft {
                     form(current)
-                } else if findingSuggestions {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                        Text(AppCopy.findingSuggestions)
-                        Button(AppCopy.skipSuggestions) {
-                            skipSuggestions()
+                        .transition(.opacity)
+                        // comeup run 3 (C8): File it is the sheet's one primary action, in thumb
+                        // reach, with the reason it is unavailable right above it.
+                        .primaryActionBar {
+                            // Always laid out, shown only while File it is unavailable, so the
+                            // bar does not change height as the first letter of a title is typed.
+                            Text(AppCopy.titleNeededHint)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .opacity(current.canFile ? 0 : 1)
+                                .accessibilityHidden(current.canFile)
+                            Button {
+                                file()
+                            } label: {
+                                Text(AppCopy.fileButton)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .primaryAction()
+                            .disabled(!current.canFile)
                         }
-                    }
-                    .padding()
                 } else {
-                    ProgressView()
+                    // comeup run 3 (C6, F3): placeholder rows in the form's shape while the draft
+                    // builds, instead of a bare spinner that the whole form then replaces.
+                    ConfirmPlaceholder(
+                        finding: findingSuggestions,
+                        skip: skipSuggestions
+                    )
+                    .transition(.opacity)
                 }
             }
+            .animation(reduceMotion ? nil : DesignTokens.Motion.change, value: draft == nil)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(AppCopy.cancelButton) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(AppCopy.fileButton) {
-                        file()
-                    }
-                    .disabled(!(draft?.canFile ?? false))
                 }
             }
         }
@@ -99,15 +115,25 @@ struct ConfirmView: View {
                 }
             }
 
-            Section(AppCopy.titleHeader) {
+            // comeup run 3 (O-1): the recording's own words, set apart, so they are not read as
+            // the title. Shown verbatim (Rule 1), only shortened for the sheet.
+            Section(AppCopy.whatYouSaidHeader) {
                 switch row {
                 case .ready(let excerpt):
                     Text(excerpt)
+                        .fontDesign(DesignTokens.wordsFontDesign)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
                 case .noTranscript:
                     Text(AppCopy.noTranscriptLabel)
+                        .foregroundStyle(.secondary)
                 case .transcribing:
                     Text(AppCopy.transcribingLabel)
+                        .foregroundStyle(.secondary)
                 }
+            }
+
+            Section(AppCopy.titleHeader) {
                 if let chip = current.titleChip {
                     suggestionRow(chip: chip) {
                         mutateDraft { $0.acceptTitle() }
@@ -119,11 +145,6 @@ struct ConfirmView: View {
                     get: { draft?.typedTitle ?? "" },
                     set: { value in mutateDraft(animated: false) { $0.typedTitle = value } }
                 ))
-                if !current.canFile {
-                    Text(AppCopy.titleNeededHint)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
 
             Section(AppCopy.periodHeader) {
@@ -131,7 +152,7 @@ struct ConfirmView: View {
                    current.periodSuggestionState != .rejected {
                     suggestionRow(
                         text: suggested.title,
-                        isSuggested: current.periodSuggestionState == .suggested
+                        state: current.periodSuggestionState
                     ) {
                         mutateDraft { $0.acceptSuggestedPeriod() }
                     } reject: {
@@ -168,7 +189,7 @@ struct ConfirmView: View {
                     mutateDraft { $0.setWhen(.notSure) }
                 }
                 Picker(AppCopy.whenHeader, selection: $selectedWhenValue) {
-                    Text("—").tag(Int?.none)
+                    Text(AppCopy.notSure).tag(Int?.none)
                     if whenMode == .year {
                         ForEach(Array(stride(from: Calendar.current.component(.year, from: Date()), through: 1900, by: -1)), id: \.self) { year in
                             Text(String(year)).tag(Int?.some(year))
@@ -195,127 +216,160 @@ struct ConfirmView: View {
                 }
             }
 
-            Section(AppCopy.peopleHeader) {
-                ForEach(current.people) { chip in
-                    suggestionRow(chip: chip) {
-                        mutateDraft { $0.setChip(chip.id, .accepted) }
-                    } reject: {
-                        mutateDraft { $0.setChip(chip.id, .rejected) }
+            Section {
+                Button {
+                    withAnimation(reduceMotion ? nil : DesignTokens.Motion.change) {
+                        showMoreDetails.toggle()
                     }
-                    if chip.state == .accepted, let match = chip.match {
-                        Picker(AppCopy.peopleHeader, selection: Binding(
-                            get: {
-                                draft?.people.first(where: { $0.id == chip.id })?.useMatch ?? true
-                            },
-                            set: { useMatch in
-                                mutateDraft { $0.setUseMatch(chip.id, useMatch) }
-                            }
-                        )) {
-                            Text("\(AppCopy.sameAs) \(match.name)").tag(true)
-                            Text(AppCopy.newPerson).tag(false)
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                }
-                ForEach(Array(current.typedPeople.enumerated()), id: \.offset) { index, entity in
+                } label: {
                     HStack {
-                        Text(entityName(entity, known: current.knownPeople))
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                            Text(AppCopy.moreDetails)
+                                .foregroundStyle(.primary)
+                            let waiting = waitingSuggestions(current)
+                            if waiting > 0 {
+                                Text(AppCopy.suggestionsWaiting(waiting))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Spacer()
-                        Button {
-                            mutateDraft { $0.removeTypedPerson(at: index) }
-                        } label: {
-                            Image(systemName: "trash")
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .accessibilityLabel(removeLabel(entityName(entity, known: current.knownPeople)))
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(showMoreDetails ? 90 : 0))
+                            .accessibilityHidden(true)
                     }
-                    .buttonStyle(.borderless)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
-                Menu(AppCopy.addPerson) {
-                    ForEach(current.knownPeople, id: \.id) { person in
-                        Button(person.name) {
-                            mutateDraft { $0.addTypedPerson(.existing(person.id)) }
-                        }
-                    }
-                }
-                TextField(AppCopy.newPerson, text: $newPersonName)
-                    .onSubmit {
-                        let name = newPersonName
-                        mutateDraft { $0.addTypedPerson(.new(name)) }
-                        newPersonName = ""
-                    }
+                .buttonStyle(.borderless)
+                .accessibilityValue(showMoreDetails ? AppCopy.expandedValue : AppCopy.collapsedValue)
             }
 
-            Section(AppCopy.placesHeader) {
-                ForEach(current.places) { chip in
-                    suggestionRow(chip: chip) {
-                        mutateDraft { $0.setChip(chip.id, .accepted) }
-                    } reject: {
-                        mutateDraft { $0.setChip(chip.id, .rejected) }
-                    }
-                    if chip.state == .accepted, let match = chip.match {
-                        Picker(AppCopy.placesHeader, selection: Binding(
-                            get: {
-                                draft?.places.first(where: { $0.id == chip.id })?.useMatch ?? true
-                            },
-                            set: { useMatch in
-                                mutateDraft { $0.setUseMatch(chip.id, useMatch) }
-                            }
-                        )) {
-                            Text("\(AppCopy.sameAs) \(match.name)").tag(true)
-                            Text(AppCopy.newPlace).tag(false)
+            if showMoreDetails {
+                Section(AppCopy.peopleHeader) {
+                    ForEach(current.people) { chip in
+                        suggestionRow(chip: chip) {
+                            mutateDraft { $0.setChip(chip.id, .accepted) }
+                        } reject: {
+                            mutateDraft { $0.setChip(chip.id, .rejected) }
                         }
-                        .pickerStyle(.segmented)
-                    }
-                }
-                if let typedPlace = current.typedPlace {
-                    HStack {
-                        Text(entityName(typedPlace, known: current.knownPlaces))
-                        Spacer()
-                        Button {
-                            mutateDraft { $0.setTypedPlace(nil) }
-                        } label: {
-                            Image(systemName: "trash")
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .accessibilityLabel(removeLabel(entityName(typedPlace, known: current.knownPlaces)))
-                    }
-                    .buttonStyle(.borderless)
-                }
-                Menu(AppCopy.addPlace) {
-                    ForEach(current.knownPlaces, id: \.id) { place in
-                        Button(place.name) {
-                            mutateDraft { $0.setTypedPlace(.existing(place.id)) }
-                        }
-                    }
-                }
-                TextField(AppCopy.newPlace, text: $newPlaceName)
-                    .onSubmit {
-                        let name = newPlaceName
-                        mutateDraft { $0.setTypedPlace(.new(name)) }
-                        newPlaceName = ""
-                    }
-            }
-
-            Section(AppCopy.followUpsHeader) {
-                ForEach(current.followUps.filter { current.isLive($0) }) { row in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(row.question.text)
-                        if row.question.templateID != FilingTemplates.broad.id {
-                            HStack {
-                                choiceButton(
-                                    AppCopy.later,
-                                    selected: row.choice == .later
-                                ) {
-                                    mutateDraft { $0.setRow(row.id, .later) }
+                        if chip.state == .accepted, let match = chip.match {
+                            Picker(AppCopy.peopleHeader, selection: Binding(
+                                get: {
+                                    draft?.people.first(where: { $0.id == chip.id })?.useMatch ?? true
+                                },
+                                set: { useMatch in
+                                    mutateDraft { $0.setUseMatch(chip.id, useMatch) }
                                 }
-                                choiceButton(
-                                    AppCopy.notThisOne,
-                                    selected: row.choice == .notThisOne
-                                ) {
-                                    mutateDraft { $0.setRow(row.id, .notThisOne) }
+                            )) {
+                                Text("\(AppCopy.sameAs) \(match.name)").tag(true)
+                                Text(AppCopy.newPerson).tag(false)
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                    }
+                    ForEach(Array(current.typedPeople.enumerated()), id: \.offset) { index, entity in
+                        HStack {
+                            Text(entityName(entity, known: current.knownPeople))
+                            Spacer()
+                            Button {
+                                mutateDraft { $0.removeTypedPerson(at: index) }
+                            } label: {
+                                Image(systemName: "trash")
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel(removeLabel(entityName(entity, known: current.knownPeople)))
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    Menu(AppCopy.addPerson) {
+                        ForEach(current.knownPeople, id: \.id) { person in
+                            Button(person.name) {
+                                mutateDraft { $0.addTypedPerson(.existing(person.id)) }
+                            }
+                        }
+                    }
+                    TextField(AppCopy.newPerson, text: $newPersonName)
+                        .onSubmit {
+                            let name = newPersonName
+                            mutateDraft { $0.addTypedPerson(.new(name)) }
+                            newPersonName = ""
+                        }
+                }
+
+                Section(AppCopy.placesHeader) {
+                    ForEach(current.places) { chip in
+                        suggestionRow(chip: chip) {
+                            mutateDraft { $0.setChip(chip.id, .accepted) }
+                        } reject: {
+                            mutateDraft { $0.setChip(chip.id, .rejected) }
+                        }
+                        if chip.state == .accepted, let match = chip.match {
+                            Picker(AppCopy.placesHeader, selection: Binding(
+                                get: {
+                                    draft?.places.first(where: { $0.id == chip.id })?.useMatch ?? true
+                                },
+                                set: { useMatch in
+                                    mutateDraft { $0.setUseMatch(chip.id, useMatch) }
+                                }
+                            )) {
+                                Text("\(AppCopy.sameAs) \(match.name)").tag(true)
+                                Text(AppCopy.newPlace).tag(false)
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                    }
+                    if let typedPlace = current.typedPlace {
+                        HStack {
+                            Text(entityName(typedPlace, known: current.knownPlaces))
+                            Spacer()
+                            Button {
+                                mutateDraft { $0.setTypedPlace(nil) }
+                            } label: {
+                                Image(systemName: "trash")
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel(removeLabel(entityName(typedPlace, known: current.knownPlaces)))
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    Menu(AppCopy.addPlace) {
+                        ForEach(current.knownPlaces, id: \.id) { place in
+                            Button(place.name) {
+                                mutateDraft { $0.setTypedPlace(.existing(place.id)) }
+                            }
+                        }
+                    }
+                    TextField(AppCopy.newPlace, text: $newPlaceName)
+                        .onSubmit {
+                            let name = newPlaceName
+                            mutateDraft { $0.setTypedPlace(.new(name)) }
+                            newPlaceName = ""
+                        }
+                }
+
+                Section(AppCopy.followUpsHeader) {
+                    ForEach(current.followUps.filter { current.isLive($0) }) { row in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(row.question.text)
+                            if row.question.templateID != FilingTemplates.broad.id {
+                                HStack {
+                                    choiceButton(
+                                        AppCopy.later,
+                                        selected: row.choice == .later
+                                    ) {
+                                        mutateDraft { $0.setRow(row.id, .later) }
+                                    }
+                                    choiceButton(
+                                        AppCopy.notThisOne,
+                                        selected: row.choice == .notThisOne
+                                    ) {
+                                        mutateDraft { $0.setRow(row.id, .notThisOne) }
+                                    }
                                 }
                             }
                         }
@@ -330,51 +384,76 @@ struct ConfirmView: View {
         accept: @escaping () -> Void,
         reject: @escaping () -> Void
     ) -> some View {
-        suggestionRow(text: chip.span.text, isSuggested: chip.state == .suggested, accept: accept, reject: reject)
+        suggestionRow(text: chip.span.text, state: chip.state, accept: accept, reject: reject)
     }
 
     /// comeup run 2: the user's words get the full row width; the actions sit on their own line
     /// (they used to squeeze the words into a three-line column). VoiceOver names what each acts on.
+    /// comeup run 3 (C4, C5): an accepted suggestion shows as chosen ("Using this", filled) with
+    /// Not this still there to undo it; both buttons are 44 pt and stack at large text sizes.
     private func suggestionRow(
         text: String,
-        isSuggested: Bool,
+        state: ChipState,
         accept: @escaping () -> Void,
         reject: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text(text)
+                    .fontDesign(DesignTokens.wordsFontDesign)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if isSuggested {
+                if state == .suggested {
                     Text(AppCopy.suggestedLabel)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
-            HStack(spacing: DesignTokens.Spacing.s) {
-                Button {
-                    accept()
-                    choiceTick += 1
-                } label: {
-                    Label(AppCopy.acceptButton, systemImage: "checkmark")
-                        .frame(minHeight: 32)
-                }
-                .buttonStyle(.bordered)
-                .tint(.accentColor)
-                .accessibilityLabel("\(AppCopy.acceptButton): \(text)")
-                Button {
-                    reject()
-                    choiceTick += 1
-                } label: {
-                    Label(AppCopy.rejectButton, systemImage: "xmark")
-                        .frame(minHeight: 32)
-                }
-                .buttonStyle(.bordered)
-                .tint(.gray)
-                .accessibilityLabel("\(AppCopy.rejectButton): \(text)")
+            // Side by side normally; stacked at accessibility text sizes so neither label clips.
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: DesignTokens.Spacing.s))
+                : AnyLayout(HStackLayout(spacing: DesignTokens.Spacing.s))
+            layout {
+                suggestionButtons(text: text, state: state, accept: accept, reject: reject)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, DesignTokens.Spacing.xs)
+    }
+
+    @ViewBuilder
+    private func suggestionButtons(
+        text: String,
+        state: ChipState,
+        accept: @escaping () -> Void,
+        reject: @escaping () -> Void
+    ) -> some View {
+        let accepted = state == .accepted
+        let acceptTitle = accepted ? AppCopy.acceptedButton : AppCopy.acceptButton
+        Button {
+            accept()
+            choiceTick += 1
+        } label: {
+            Label(acceptTitle, systemImage: accepted ? "checkmark.circle.fill" : "checkmark")
+                .frame(minHeight: 44)
+        }
+        .modifier(ChoiceStyle(chosen: accepted))
+        .accessibilityLabel("\(acceptTitle): \(text)")
+        .accessibilityAddTraits(accepted ? .isSelected : [])
+        Button {
+            reject()
+            choiceTick += 1
+        } label: {
+            Label(AppCopy.rejectButton, systemImage: "xmark")
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .tint(.secondary)
+        .accessibilityLabel("\(AppCopy.rejectButton): \(text)")
+    }
+
+    /// Suggestions not yet accepted or rejected inside the More details fold.
+    private func waitingSuggestions(_ current: ConfirmDraft) -> Int {
+        current.people.filter { $0.state == .suggested }.count
+            + current.places.filter { $0.state == .suggested }.count
     }
 
     private func choiceButton(
@@ -438,7 +517,7 @@ struct ConfirmView: View {
         guard var value = draft else { return }
         mutation(&value)
         if animated && !reduceMotion {
-            withAnimation(.smooth(duration: 0.25)) { draft = value }
+            withAnimation(DesignTokens.Motion.change) { draft = value }
         } else {
             draft = value
         }
@@ -554,6 +633,68 @@ struct ConfirmView: View {
         } catch {
             // Filing failures keep the unchanged draft on screen, per the R7a contract, and say so.
             fileFailed = true
+        }
+    }
+}
+
+/// The accept button: bordered while it is an offer, filled once it is the choice.
+private struct ChoiceStyle: ViewModifier {
+    let chosen: Bool
+
+    func body(content: Content) -> some View {
+        if chosen {
+            content
+                .buttonStyle(.borderedProminent)
+                .foregroundStyle(DesignTokens.onAccent)
+        } else {
+            content
+                .buttonStyle(.bordered)
+                .tint(.accentColor)
+        }
+    }
+}
+
+/// The confirm sheet while its draft builds (comeup run 3, C6 and F3, Perry's pick; BoardBound
+/// Skeleton.tsx): grey rows in the form's shape that breathe slowly, still under Reduce Motion,
+/// with what is happening and the way to skip it on top.
+private struct ConfirmPlaceholder: View {
+    let finding: Bool
+    let skip: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dim = false
+
+    var body: some View {
+        Form {
+            if finding {
+                Section {
+                    HStack(spacing: DesignTokens.Spacing.s) {
+                        ProgressView()
+                        Text(AppCopy.findingSuggestions)
+                    }
+                    Button(AppCopy.skipSuggestions, action: skip)
+                }
+            }
+            Group {
+                Section(AppCopy.whatYouSaidHeader) {
+                    Text("A few lines of what you said, shown while this loads.")
+                    Text("A second line of words.")
+                }
+                Section(AppCopy.titleHeader) {
+                    Text("A suggested title")
+                    Text("Type a title")
+                }
+                Section(AppCopy.periodHeader) {
+                    Text("A period of your life")
+                }
+            }
+            .redacted(reason: .placeholder)
+            .opacity(dim ? 0.4 : 1)
+            .accessibilityHidden(true)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { dim = true }
         }
     }
 }

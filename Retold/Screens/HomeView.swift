@@ -26,6 +26,8 @@ struct HomeView: View {
     @State private var micBlocked = false
     /// comeup run 2, V2: the title just filed, shown briefly as a pill (BoardBound EarnToast.tsx).
     @State private var filedTitle: String?
+    /// The title just filed, held until the confirm sheet has closed (comeup run 3, C7).
+    @State private var pendingFiledTitle: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var sections: [TimelineSection] {
@@ -62,18 +64,17 @@ struct HomeView: View {
                         }
                     }
                 }
-                ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                // comeup run 3 (C2): keyed by period, so a filed story moves its row, not every section.
+                ForEach(sections, id: \.period?.id) { section in
                     Section {
                         if let ref = section.period {
                             if let period = periodsByID[ref.id] {
                                 NavigationLink(destination: PeriodView(period: period)) {
-                                    Text(ref.title)
-                                        .font(.headline)
+                                    periodHeader(ref.title, count: section.episodeIDs.count)
                                 }
                             }
                         } else {
-                            Text(AppCopy.noPeriod)
-                                .font(.headline)
+                            periodHeader(AppCopy.noPeriod, count: section.episodeIDs.count)
                         }
                         ForEach(section.episodeIDs, id: \.self) { id in
                             if let episode = episodesByID[id] {
@@ -91,6 +92,8 @@ struct HomeView: View {
                     NavigationLink(AppCopy.setAsideTitle, destination: SetAsideView())
                 }
             }
+            // comeup run 3 (C17): tighter gaps, so more of the life fits above the Record button.
+            .listSectionSpacing(.compact)
             // comeup run 2: the app's one primary action is a filled accent button in thumb reach,
             // not a list row with the same weight as every other row.
             .primaryActionBar {
@@ -115,7 +118,7 @@ struct HomeView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView(files: coordinator.files)
         }
-        .sheet(item: $selectedCapture) { capture in
+        .sheet(item: $selectedCapture, onDismiss: showPendingFiled) { capture in
             ConfirmView(
                 capture: capture,
                 row: ConfirmDraft.unfiledRow(
@@ -127,8 +130,8 @@ struct HomeView: View {
             ) { outcome in
                 outcomes[capture.id] = outcome
             } onFiled: { title in
-                filedTitle = title
-                AccessibilityNotification.Announcement("\(AppCopy.filedLabel): \(title)").post()
+                // comeup run 3 (C7): the pill and its haptic wait for the sheet to close.
+                pendingFiledTitle = title
             }
         }
         .overlay(alignment: .top) {
@@ -144,7 +147,7 @@ struct HomeView: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: filedTitle)
+        .animation(reduceMotion ? nil : DesignTokens.Motion.change, value: filedTitle)
         .sensoryFeedback(.success, trigger: filedTitle) { _, new in new != nil }
         .task(id: filedTitle) {
             guard filedTitle != nil else { return }
@@ -205,6 +208,24 @@ struct HomeView: View {
         }
     }
 
+    private func showPendingFiled() {
+        guard let title = pendingFiledTitle else { return }
+        pendingFiledTitle = nil
+        filedTitle = title
+        AccessibilityNotification.Announcement("\(AppCopy.filedLabel): \(title)").post()
+    }
+
+    private func periodHeader(_ title: String, count: Int) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            Text(title)
+                .font(.headline)
+            Text(count == 0 ? AppCopy.noStoriesYet : AppCopy.storyCount(count))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     private func startRecording() {
         // Stop playback (deactivating) before the capture starts, while the phase is .idle.
         playback.stop()
@@ -251,7 +272,7 @@ struct HomeView: View {
     }
 
     private func captureRow(_ capture: Capture, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             Text(capture.createdAt.formatted(date: .abbreviated, time: .shortened))
             Text(detail)
                 .foregroundStyle(.secondary)
@@ -353,12 +374,15 @@ struct EpisodeRow: View {
         let facts = EpisodeFacts(episode: episode)
         NavigationLink(destination: EpisodeView(episode: episode)) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                    // comeup run 3 (F1): the story's own words in the serif face.
                     Text(facts.title ?? AppCopy.untitled)
+                        .fontDesign(DesignTokens.wordsFontDesign)
                     // Verbatim user words, the same line the export prints; not a Confirmable.
                     if !episode.excerpt.isEmpty {
                         Text(episode.excerpt)
                             .font(.subheadline)
+                            .fontDesign(DesignTokens.wordsFontDesign)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }

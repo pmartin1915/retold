@@ -30,12 +30,13 @@ struct PersonView: View {
                 EmptyPage(title: AppCopy.emptyTitle, message: AppCopy.emptyPersonMessage)
             } else {
                 List {
-                    OfferSection(offers: offers, target: .person(person))
+                    // comeup run 3 (C13): the stories first, then the questions.
                     Section {
                         ForEach(person.episodes.newestFirst()) { episode in
                             EpisodeRow(episode: episode)
                         }
                     }
+                    OfferSection(offers: offers, target: .person(person), folded: !person.episodes.isEmpty)
                 }
             }
         }

@@ -15,12 +15,13 @@ struct PeriodView: View {
                 EmptyPage(title: AppCopy.emptyTitle, message: AppCopy.emptyPeriodMessage)
             } else {
                 List {
-                    OfferSection(offers: offers, target: .period(period))
+                    // comeup run 3 (C13): the stories first, then the questions.
                     Section {
                         ForEach(period.episodes.newestFirst()) { episode in
                             EpisodeRow(episode: episode)
                         }
                     }
+                    OfferSection(offers: offers, target: .period(period), folded: !period.episodes.isEmpty)
                 }
             }
         }

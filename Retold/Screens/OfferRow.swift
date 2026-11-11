@@ -16,8 +16,10 @@ struct OfferRow: View {
     @State private var saveFailed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+            // comeup run 3 (F1): questions in the serif face, as StoryCue sets them.
             Text(offer.question.text)
+                .fontDesign(DesignTokens.wordsFontDesign)
             HStack {
                 // comeup run 2: 44 pt tap height (house style rule 4); the frame sits inside the label.
                 Button {
@@ -85,14 +87,29 @@ struct OfferRow: View {
 struct OfferSection: View {
     let offers: [EngineOffer]
     let target: OfferTarget
+    /// comeup run 3 (C13): under a page's stories, the questions fold into one counted row, as on
+    /// the story page (run 2, V5). Unfolded on a page with no stories, where they are the content.
+    var folded = false
 
     var body: some View {
         if !offers.isEmpty {
-            Section(AppCopy.questionsHeader) {
-                ForEach(Array(offers.enumerated()), id: \.offset) { _, offer in
-                    OfferRow(offer: offer, target: target)
+            if folded {
+                Section {
+                    DisclosureGroup("\(AppCopy.questionsHeader) (\(offers.count))") {
+                        rows
+                    }
+                }
+            } else {
+                Section(AppCopy.questionsHeader) {
+                    rows
                 }
             }
+        }
+    }
+
+    private var rows: some View {
+        ForEach(Array(offers.enumerated()), id: \.offset) { _, offer in
+            OfferRow(offer: offer, target: target)
         }
     }
 }

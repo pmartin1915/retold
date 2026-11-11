@@ -40,7 +40,7 @@ final class ScreenshotTests: XCTestCase {
         let story = labelled("Summers at the lake house", in: app)
         guard scrollTo(story, in: app, named: "04-story (home row)") else { return }
         story.tap()
-        let storyPage = app.navigationBars["Summers at the lake house"].firstMatch
+        let storyPage = app.staticTexts["storyTitle"].firstMatch
         guard waitForScreen(storyPage, named: "04-story (story page)") else { return }
         settle()
         attachScreenshot(of: app, named: "04-story")

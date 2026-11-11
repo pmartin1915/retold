@@ -39,6 +39,8 @@ enum AppCopy {
     static let liveTextPlaceholder = "Start talking whenever you’re ready. Your words will appear here."
     /// VoiceOver label for the playback scrubber.
     static let playbackPosition = "Playback position"
+    /// VoiceOver hint on a transcript line: tapping plays the recording from there (comeup run 3).
+    static let seekHint = "Plays the recording from this line."
     /// VoiceOver label prefix for a remove (trash) button; the item name follows.
     static let removeLabel = "Remove"
     /// Settings sheet dismiss button.
@@ -72,6 +74,19 @@ enum AppCopy {
     static let suggestedLabel = "suggested"
     /// R7a: accepts a suggested value.
     static let acceptButton = "Use this"
+    /// Confirm flow: the accept button once the suggestion is in use (comeup run 3).
+    static let acceptedButton = "Using this"
+    /// Confirm flow: header over the recording's own words, above the title (comeup run 3).
+    static let whatYouSaidHeader = "What you said"
+    /// Confirm flow: the fold over people, places and questions for later (comeup run 3, F4).
+    static let moreDetails = "More details"
+    /// VoiceOver values for the More details fold.
+    static let expandedValue = "Expanded"
+    static let collapsedValue = "Collapsed"
+    /// Confirm flow: how many suggestions wait inside the fold.
+    static func suggestionsWaiting(_ count: Int) -> String {
+        count == 1 ? "1 suggestion" : "\(count) suggestions"
+    }
     /// R7a: rejects a suggested value.
     static let rejectButton = "Not this"
     /// R7a: confirm-flow title section.
@@ -82,6 +97,10 @@ enum AppCopy {
     static let periodHeader = "Period"
     /// R7a: period picker option for no period.
     static let noPeriod = "Not in a period"
+    /// Home: under a period's name when it holds no stories yet (comeup run 3).
+    static let noStoriesYet = "No stories yet"
+    /// Home: under a period's name, how many stories it holds.
+    static func storyCount(_ count: Int) -> String { count == 1 ? "1 story" : "\(count) stories" }
     /// R7a: period picker option for a new period.
     static let newPeriod = "New period…"
     /// R7a: prompt for a new period title.
@@ -241,7 +260,12 @@ enum AppCopy {
         recordingLabel,
         startingLabel,
         savingLabel,
+        liveTextPlaceholder,
+        noStoriesYet,
+        storyCount(1),
+        storyCount(2),
         playbackPosition,
+        seekHint,
         playbackFailed,
         removeLabel,
         doneButton,
@@ -260,6 +284,13 @@ enum AppCopy {
         fileButton,
         suggestedLabel,
         acceptButton,
+        acceptedButton,
+        whatYouSaidHeader,
+        moreDetails,
+        expandedValue,
+        collapsedValue,
+        suggestionsWaiting(1),
+        suggestionsWaiting(2),
         rejectButton,
         titleHeader,
         titlePlaceholder,
