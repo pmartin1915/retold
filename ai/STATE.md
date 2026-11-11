@@ -1,14 +1,14 @@
 # STATE: retold (NOW)
 
-**Updated 2026-11-10.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
+**Updated 2026-11-11.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
 
 ## Critical path
 **PARKED 2026-11-10 (Perry): 1.0 will not be filed.** He could not file it, and on device the transcription misheard words, dropped chunks of speech, and lagged. Next step is a redesign + transcription-quality lane, started once the other ship-wave apps (Tellfolk, BoardBound, Burn Wizard) are uploaded and done. ASC 1.0 (build 14.1) stays READY_FOR_REVIEW and unsubmitted; 1.1.0 build 15.1 is on TestFlight. The engine is already iOS 26 `SpeechTranscriber` (`Retold/Capture/Device/SpeechModules.swift`), so the lane tunes it (file re-pass over saved audio, custom vocabulary via the analysis context, the 1.1 corrections UI from IDEAS 2026-10-04) rather than swapping engines.
 
-1.1 work on main: comeup run 2 merged PRs #26-#31 on 2026-11-09 (state clarity, terracotta accent and primary actions, layout, playback, Perry's veteran picks). None of it is in build 14.1. Scorecard: `ai/comeup/2026-11-09/scorecard.md`.
+1.1 work on main: comeup run 2 (#26-#31, 2026-11-09) and run 3 (#33, #35, 2026-11-11: recorder capsule + record ring, cheap live text, serif for the user's words, story/confirm/Home redesign, dark-mode CI capture). **1.1.0 build 16.1 (deploy run 16, main `bc11052`) uploaded to TestFlight 2026-11-11**; no submission. Scorecards: `ai/comeup/2026-11-09/`, `ai/comeup/2026-11-10/`.
 
 ## Waiting on Perry
-- Nothing. (Device video line closed 2026-11-10: Perry parked 1.0, see Critical path.)
+- Feel build 16.1 on the phone once TestFlight finishes processing: record two or three stories and say what still feels off (live-text smoothness, the record ring, the serif). Device-only items are listed in `ai/comeup/2026-11-10/scorecard.md`. (Claude-set 2026-11-11, re-check 2026-11-14)
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
