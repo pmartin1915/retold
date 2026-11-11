@@ -17,7 +17,7 @@ struct RetoldApp: App {
         func serif(_ style: UIFont.TextStyle, _ weight: UIFont.Weight) -> UIFont {
             let base = UIFont.preferredFont(forTextStyle: style)
             let descriptor = (base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor)
-                .addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
+                .addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight.rawValue]])
             return UIFont(descriptor: descriptor, size: 0)
         }
         let bar = UINavigationBar.appearance()
