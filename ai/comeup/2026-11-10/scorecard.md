@@ -15,7 +15,7 @@ Perry: "it does not look professional or feel smooth yet." This run was screensh
 
 Before is the mean of the three seats (S/K/O, adjudication.md). After is Opus re-scoring from the CI screenshots of the merged heads: #33 run 42966635383 and #35 run 42970289356, 6.9" ASC plus the ui-checks artifacts.
 
-**Shipped.** All merged to main 2026-11-11, with CI green on each merged head (build, unit tests, both screenshot sizes). The reviewer agent ran on each.
+**Shipped.** All merged to main 2026-11-11, with CI green on each merged head (build, unit tests, both screenshot sizes). The reviewer agent ran on the three feature commits. The two follow-up fixes (`6fa6477` reviewer fixes, `16ffb8f` button layout + transcript colour) were checked by CI screenshots only.
 
 | PR | Merge | What it shipped |
 |---|---|---|
@@ -60,4 +60,4 @@ Before is the mean of the three seats (S/K/O, adjudication.md). After is Opus re
 - Haptics.
 - The serif face at length.
 
-**Next:** Perry records a few stories on the TestFlight build from this run (1.1.0, deploy run 16). Then the transcription-accuracy lane picks up, as STATE says.
+**Next:** Perry records a few stories on the TestFlight build from this run (1.1.0 (16.1), deploy run 16; ASC upload succeeded, delivery 15483318). Then the transcription-accuracy lane picks up, as STATE says.
