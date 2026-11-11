@@ -232,6 +232,7 @@ private struct LiveTranscript: View {
         }
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
         .frame(maxHeight: .infinity)
-        .background(.fill.quinary, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+        // comeup run 4: a BoardBound paper card on the canvas.
+        .paperCard()
     }
 }

@@ -10,6 +10,21 @@ struct RetoldApp: App {
     @MainActor private static var failedFirstStart = false
     #endif
 
+    init() {
+        // comeup run 4 (BoardBound's editorial headings): navigation titles in the serif face.
+        // shortcut: sizes are read once at launch, so a Dynamic Type change applies on next launch;
+        // move to a UIFontMetrics-scaled font if that is ever reported.
+        func serif(_ style: UIFont.TextStyle, _ weight: UIFont.Weight) -> UIFont {
+            let base = UIFont.preferredFont(forTextStyle: style)
+            let descriptor = (base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor)
+                .addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
+            return UIFont(descriptor: descriptor, size: 0)
+        }
+        let bar = UINavigationBar.appearance()
+        bar.largeTitleTextAttributes = [.font: serif(.largeTitle, .bold)]
+        bar.titleTextAttributes = [.font: serif(.headline, .semibold)]
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -32,6 +47,8 @@ struct RetoldApp: App {
                     LaunchView()
                 }
             }
+            // comeup run 4: every screen sits on BoardBound's warm canvas, never the system white.
+            .background(DesignTokens.canvas.ignoresSafeArea())
             .preferredColorScheme(Self.harnessColorScheme)
             .task {
                 startServices()

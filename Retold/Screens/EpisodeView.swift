@@ -24,7 +24,7 @@ struct EpisodeView: View {
             }
             // The user's own voice and words come before the questions (screenshot 04-story had
             // them below the fold under five offers).
-            Section(AppCopy.recordingsHeader) {
+            EyebrowSection(AppCopy.recordingsHeader) {
                 ForEach(sortedCaptures) { capture in
                     captureBlock(capture)
                 }
@@ -43,6 +43,7 @@ struct EpisodeView: View {
         }
         // The title stays the navigation title (back buttons and VoiceOver use it), but the bar
         // shows nothing: the wrapping header above is the one visible title (comeup run 3, C11).
+        .paperPage()
         .navigationTitle(facts.title ?? AppCopy.untitled)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(removing: .title)

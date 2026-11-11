@@ -32,6 +32,7 @@ struct SetAsideView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(AppCopy.setAsideTitle)
         .alert(AppCopy.saveFailedTitle, isPresented: $failed) {
             Button(AppCopy.okButton, role: .cancel) {}

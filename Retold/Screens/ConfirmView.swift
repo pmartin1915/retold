@@ -83,6 +83,7 @@ struct ConfirmView: View {
                 }
             }
             .animation(reduceMotion ? nil : DesignTokens.Motion.change, value: draft == nil)
+            .paperPage()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(AppCopy.cancelButton) { dismiss() }
@@ -117,7 +118,7 @@ struct ConfirmView: View {
 
             // comeup run 3 (O-1): the recording's own words, set apart, so they are not read as
             // the title. Shown verbatim (Rule 1), only shortened for the sheet.
-            Section(AppCopy.whatYouSaidHeader) {
+            EyebrowSection(AppCopy.whatYouSaidHeader) {
                 switch row {
                 case .ready(let excerpt):
                     Text(excerpt)
@@ -133,7 +134,7 @@ struct ConfirmView: View {
                 }
             }
 
-            Section(AppCopy.titleHeader) {
+            EyebrowSection(AppCopy.titleHeader) {
                 if let chip = current.titleChip {
                     suggestionRow(chip: chip) {
                         mutateDraft { $0.acceptTitle() }
@@ -147,7 +148,7 @@ struct ConfirmView: View {
                 ))
             }
 
-            Section(AppCopy.periodHeader) {
+            EyebrowSection(AppCopy.periodHeader) {
                 if let suggested = current.suggestedPeriod,
                    current.periodSuggestionState != .rejected {
                     suggestionRow(
@@ -177,7 +178,7 @@ struct ConfirmView: View {
                 }
             }
 
-            Section(AppCopy.whenHeader) {
+            EyebrowSection(AppCopy.whenHeader) {
                 Text(current.whenQuestion.text)
                 Picker(AppCopy.whenHeader, selection: $whenMode) {
                     Text(AppCopy.whenYear).tag(WhenMode.year)
@@ -248,7 +249,7 @@ struct ConfirmView: View {
             }
 
             if showMoreDetails {
-                Section(AppCopy.peopleHeader) {
+                EyebrowSection(AppCopy.peopleHeader) {
                     ForEach(current.people) { chip in
                         suggestionRow(chip: chip) {
                             mutateDraft { $0.setChip(chip.id, .accepted) }
@@ -300,7 +301,7 @@ struct ConfirmView: View {
                         }
                 }
 
-                Section(AppCopy.placesHeader) {
+                EyebrowSection(AppCopy.placesHeader) {
                     ForEach(current.places) { chip in
                         suggestionRow(chip: chip) {
                             mutateDraft { $0.setChip(chip.id, .accepted) }
@@ -352,7 +353,7 @@ struct ConfirmView: View {
                         }
                 }
 
-                Section(AppCopy.followUpsHeader) {
+                EyebrowSection(AppCopy.followUpsHeader) {
                     ForEach(current.followUps.filter { current.isLive($0) }) { row in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(row.question.text)
@@ -676,15 +677,15 @@ private struct ConfirmPlaceholder: View {
                 }
             }
             Group {
-                Section(AppCopy.whatYouSaidHeader) {
+                EyebrowSection(AppCopy.whatYouSaidHeader) {
                     Text("A few lines of what you said, shown while this loads.")
                     Text("A second line of words.")
                 }
-                Section(AppCopy.titleHeader) {
+                EyebrowSection(AppCopy.titleHeader) {
                     Text("A suggested title")
                     Text("Type a title")
                 }
-                Section(AppCopy.periodHeader) {
+                EyebrowSection(AppCopy.periodHeader) {
                     Text("A period of your life")
                 }
             }

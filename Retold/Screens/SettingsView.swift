@@ -56,6 +56,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .paperPage()
             .navigationTitle(AppCopy.settingsTitle)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

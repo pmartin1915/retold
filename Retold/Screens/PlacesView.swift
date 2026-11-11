@@ -15,6 +15,7 @@ struct PlacesView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(AppCopy.placesTitle)
     }
 }
@@ -37,6 +38,7 @@ struct PlaceView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(place.name)
     }
 }

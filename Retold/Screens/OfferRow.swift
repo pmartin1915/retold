@@ -100,7 +100,7 @@ struct OfferSection: View {
                     }
                 }
             } else {
-                Section(AppCopy.questionsHeader) {
+                EyebrowSection(AppCopy.questionsHeader) {
                     rows
                 }
             }

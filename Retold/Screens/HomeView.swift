@@ -43,7 +43,7 @@ struct HomeView: View {
         NavigationStack {
             List {
                 if !unfiledCaptures.isEmpty {
-                    Section(AppCopy.unfiledHeader) {
+                    EyebrowSection(AppCopy.unfiledHeader) {
                         ForEach(unfiledCaptures) { capture in
                             unfiledRow(capture)
                                 // Not a full swipe: a full swipe must never delete without the dialog.
@@ -84,7 +84,7 @@ struct HomeView: View {
                     }
                 }
                 // comeup run 2: browse links come after the user's own stories, not above them.
-                Section(AppCopy.browseHeader) {
+                EyebrowSection(AppCopy.browseHeader) {
                     NavigationLink(AppCopy.peopleHeader, destination: PeopleView())
                     NavigationLink(AppCopy.placesTitle, destination: PlacesView())
                     NavigationLink(AppCopy.themesTitle, destination: ThemesView())
@@ -103,6 +103,7 @@ struct HomeView: View {
                 }
                 .primaryAction()
             }
+            .paperPage()
             .navigationTitle(AppCopy.homeTitle)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -217,8 +218,10 @@ struct HomeView: View {
 
     private func periodHeader(_ title: String, count: Int) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            // comeup run 4: periods read as BoardBound's serif section titles.
             Text(title)
-                .font(.headline)
+                .font(.title3.weight(.semibold))
+                .fontDesign(DesignTokens.wordsFontDesign)
             Text(count == 0 ? AppCopy.noStoriesYet : AppCopy.storyCount(count))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)

@@ -11,7 +11,7 @@ enum DesignTokens {
         static let xl: CGFloat = 24
     }
     enum Radius {
-        static let card: CGFloat = 12
+        static let card: CGFloat = 18   // BoardBound's card radius (comeup run 4)
     }
     /// Every animation comes from here (house style rule 8: short, nothing over 0.5 s).
     /// Callers pass nil instead when Reduce Motion is on, or swap a slide for `fade`.
@@ -26,6 +26,12 @@ enum DesignTokens {
     /// The user's own words (titles, transcripts, live text) in the serif face, as StoryCue sets its
     /// questions (comeup run 3, F1, Perry's pick). Controls, clocks and labels stay in the default face.
     static let wordsFontDesign: Font.Design = .serif
+    /// comeup run 4 (Perry: "emulate the look of BoardBound"): BoardBound's editorial surfaces.
+    /// Light: its warm cream canvas under white paper cards with a hairline edge. Dark: near-stock,
+    /// so system list cells (which take no border) still sit right on it.
+    static let canvas = Color("Canvas")
+    static let paper = Color("Paper")
+    static let hairline = Color("Hairline")
     /// Text and symbols on an accent fill (white in light mode, near-black in dark).
     static let onAccent = Color("OnAccent")
     /// The recording capsule and the stop square: StoryCue's darker-than-system red, so white
@@ -45,6 +51,24 @@ enum DesignTokens {
 }
 
 extension View {
+    /// A page on the canvas instead of the system's white or grouped grey (comeup run 4). Apply at
+    /// each page root: a List or Form draws its own background, and so does every pushed page.
+    func paperPage() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .background(DesignTokens.canvas.ignoresSafeArea())
+    }
+
+    /// BoardBound's Card: paper fill, hairline edge, the card radius.
+    func paperCard() -> some View {
+        self
+            .background(DesignTokens.paper, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
+                    .strokeBorder(DesignTokens.hairline, lineWidth: 1)
+            )
+    }
+
     /// The one filled primary action of a screen: full width, large, accent fill, OnAccent label
     /// (house style rule 11). Apply to a Button.
     func primaryAction() -> some View {
@@ -91,4 +115,38 @@ struct PressableRowStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PressableRowStyle {
     static var pressable: PressableRowStyle { PressableRowStyle() }
+}
+
+/// BoardBound's Eyebrow: a small monospaced capitals label over a group (comeup run 4).
+struct Eyebrow: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.caption.monospaced().weight(.medium))
+            .tracking(1)
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+    }
+}
+
+/// A list section headed by an Eyebrow instead of the system header.
+struct EyebrowSection<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        Section {
+            content
+        } header: {
+            Eyebrow(title)
+        }
+    }
 }
