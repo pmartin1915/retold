@@ -29,7 +29,7 @@ struct ThemesView: View {
             } else {
                 List {
                     ForEach(groups) { group in
-                        Section(group.card.title) {
+                        EyebrowSection(group.card.title) {
                             ForEach(Array(group.offers.enumerated()), id: \.offset) { _, offer in
                                 OfferRow(offer: offer, target: .theme)
                             }
@@ -38,6 +38,7 @@ struct ThemesView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(AppCopy.themesTitle)
     }
 }

@@ -25,6 +25,7 @@ struct PeriodView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(period.title)
     }
 }

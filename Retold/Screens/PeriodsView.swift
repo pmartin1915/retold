@@ -25,6 +25,7 @@ struct PeriodsView: View {
                 sheet = .add
             }
         }
+        .paperPage()
         .navigationTitle(AppCopy.periodsTitle)
         .sheet(item: $sheet) { target in
             PeriodEditSheet(target: target)
@@ -82,6 +83,7 @@ struct PeriodEditSheet: View {
                     }
                 }
             }
+            .paperPage()
             .navigationTitle(isAdd ? AppCopy.addPeriod : AppCopy.renamePeriod)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

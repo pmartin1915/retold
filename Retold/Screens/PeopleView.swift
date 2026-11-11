@@ -15,6 +15,7 @@ struct PeopleView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(AppCopy.peopleHeader)
     }
 }
@@ -40,6 +41,7 @@ struct PersonView: View {
                 }
             }
         }
+        .paperPage()
         .navigationTitle(person.name)
     }
 }
