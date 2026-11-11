@@ -2,8 +2,9 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-/// R6b recorder: red dot, elapsed time, live text, Stop, and Resume while interrupted
-/// (comeup run 2: house-style pass; one primary action in thumb reach).
+/// R6b recorder: status, elapsed time, live text, Stop, and Resume while interrupted
+/// (comeup run 2: one primary action in thumb reach; comeup run 3: recording capsule, the live
+/// words as the screen's body, and StoryCue's record ring as Stop).
 struct RecorderView: View {
     let coordinator: CaptureCoordinator
     /// Anchor for the once-a-second redraw only; the displayed time is accumulated audio time.
@@ -37,46 +38,64 @@ struct RecorderView: View {
         return false
     }
 
+    /// One value per visible phase, so phase changes animate the status capsule.
+    private var phaseKey: Int {
+        if isStarting { return 0 }
+        if isRecording { return 1 }
+        if isInterrupted { return 2 }
+        if isStopping { return 3 }
+        return 4
+    }
+
+    private var ringGlyph: RecordRing.Glyph {
+        if isStarting { return .dot }
+        if isStopping { return .spinner }
+        return .square
+    }
+
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.l) {
             if coordinator.state.answering != nil {
-                Text(AppCopy.answeringLabel)
-                    .foregroundStyle(.secondary)
-                if let answeringText {
-                    Text(answeringText)
-                        .font(.headline)
+                VStack(spacing: DesignTokens.Spacing.xs) {
+                    Text(AppCopy.answeringLabel)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if let answeringText {
+                        Text(answeringText)
+                            .font(.title3)
+                            .fontDesign(DesignTokens.wordsFontDesign)
+                    }
+                    Text(AppCopy.reinstatement)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                Text(AppCopy.reinstatement)
-                    .font(.footnote)
+                .multilineTextAlignment(.center)
             }
-            // comeup run 2: the live state is the screen's headline, not a 16 pt dot.
-            HStack(spacing: 12) {
-                Image(systemName: "circle.fill")
-                    .font(.system(size: DesignTokens.recordingDotSize))
-                    .foregroundStyle(isRecording ? DesignTokens.recordingDot : Color.secondary)
-                    .symbolEffect(.pulse, options: .repeating, isActive: isRecording && !reduceMotion)
-                    .accessibilityHidden(true)
-                TimelineView(.periodic(from: tickAnchor, by: 1)) { context in
-                    Text(elapsed(at: context.date))
-                        .font(.largeTitle.monospacedDigit().weight(.semibold))
-                }
+            // comeup run 3 (F2, Perry's pick; StoryCue's recording pill): the state in words on a
+            // fill that says "recording" at a glance, then the clock as the headline.
+            statusCapsule
+            TimelineView(.periodic(from: tickAnchor, by: 1)) { context in
+                Text(elapsed(at: context.date))
+                    .font(.largeTitle.monospacedDigit().weight(.semibold))
             }
-            statusLine
-            ScrollView {
-                Text(coordinator.liveText)
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxHeight: .infinity)
+            // comeup run 3: the live words fill the middle of the screen; only this child reads them.
+            LiveTranscript(coordinator: coordinator)
+                .layoutPriority(1)
             if coordinator.lengthWarning {
                 Text(AppCopy.lengthWarning)
                     .font(.footnote)
+                    .foregroundStyle(DesignTokens.warningInk)
                     .padding(DesignTokens.Spacing.s)
-                    .background(.yellow.opacity(0.3), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+                    .frame(maxWidth: .infinity)
+                    .background(DesignTokens.warningFill, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+                    .transition(.opacity)
             }
         }
-        .padding()
-        // Stop (or Resume) is the screen's one primary action, full width in thumb reach.
+        .padding(.horizontal, DesignTokens.Spacing.l)
+        .padding(.top, DesignTokens.Spacing.s)
+        .animation(reduceMotion ? nil : DesignTokens.Motion.fade, value: phaseKey)
+        .animation(reduceMotion ? nil : DesignTokens.Motion.fade, value: coordinator.lengthWarning)
+        // The ring is the screen's one primary action, in thumb reach; Resume joins it while paused.
         .primaryActionBar {
             if isInterrupted {
                 Button {
@@ -87,15 +106,10 @@ struct RecorderView: View {
                 }
                 .primaryAction()
             }
-            // Stop is always available; while interrupted it is secondary to Resume but still ends
-            // and saves the capture.
-            Button {
+            // Stop is always available; while interrupted it still ends and saves the capture.
+            RecordRing(glyph: ringGlyph, label: AppCopy.stopButton) {
                 Task { @MainActor in coordinator.send(.tapStop) }
-            } label: {
-                Label(AppCopy.stopButton, systemImage: "stop.fill")
-                    .frame(maxWidth: .infinity)
             }
-            .modifier(StopButtonStyle(primary: !isInterrupted))
             .disabled(isStopping || isStarting)
         }
         .onAppear {
@@ -116,29 +130,49 @@ struct RecorderView: View {
         }
     }
 
+    /// Recording: white on the recording red with a breathing dot. Other phases: neutral, in words.
     @ViewBuilder
-    private var statusLine: some View {
-        if isInterrupted {
-            Text(AppCopy.pausedLabel)
-                .foregroundStyle(.secondary)
-        } else if isStarting {
-            // Engine spin-up: no audio is being captured yet, so do not say "Recording".
+    private var statusCapsule: some View {
+        if isRecording {
             HStack(spacing: DesignTokens.Spacing.s) {
-                ProgressView()
-                Text(AppCopy.startingLabel)
-                    .foregroundStyle(.secondary)
+                Image(systemName: "circle.fill")
+                    .font(.caption2)
+                    .symbolEffect(.breathe.plain, options: .repeating, isActive: !reduceMotion)
+                    .accessibilityHidden(true)
+                Text(AppCopy.recordingLabel)
             }
-        } else if isStopping {
-            // The engine is finalizing the file: say so, instead of looking like it still records.
-            HStack(spacing: DesignTokens.Spacing.s) {
-                ProgressView()
-                Text(AppCopy.savingLabel)
-                    .foregroundStyle(.secondary)
-            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, DesignTokens.Spacing.m)
+            .padding(.vertical, DesignTokens.Spacing.s)
+            .background(DesignTokens.recordingFill, in: Capsule())
+            .accessibilityElement(children: .combine)
         } else {
-            Text(AppCopy.recordingLabel)
-                .foregroundStyle(.secondary)
+            HStack(spacing: DesignTokens.Spacing.s) {
+                if isStarting || isStopping {
+                    // Engine spin-up or file finalizing: no audio is being captured right now.
+                    ProgressView()
+                        .controlSize(.small)
+                } else if isInterrupted {
+                    Image(systemName: "pause.fill")
+                        .accessibilityHidden(true)
+                }
+                Text(statusWord)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, DesignTokens.Spacing.m)
+            .padding(.vertical, DesignTokens.Spacing.s)
+            .background(.fill.tertiary, in: Capsule())
+            .accessibilityElement(children: .combine)
         }
+    }
+
+    private var statusWord: String {
+        if isInterrupted { return AppCopy.pausedLabel }
+        if isStarting { return AppCopy.startingLabel }
+        if isStopping { return AppCopy.savingLabel }
+        return AppCopy.recordingLabel
     }
 
     /// Counts time only while the phase is .recording, so the clock matches the saved file.
@@ -167,18 +201,37 @@ struct RecorderView: View {
     }
 }
 
-/// Stop is the primary action while recording, and a secondary (bordered, large) one under Resume
-/// while interrupted.
-private struct StopButtonStyle: ViewModifier {
-    let primary: Bool
+/// The live words while recording (comeup run 3, findings C1/C19). Only this view reads the live
+/// text, so a volatile result redraws it and not the clock or the controls. Settled words are
+/// primary; the tentative tail, which the recognizer may still revise, is secondary. The scroll
+/// stays pinned to the newest words as the text grows.
+private struct LiveTranscript: View {
+    let coordinator: CaptureCoordinator
 
-    func body(content: Content) -> some View {
-        if primary {
-            content.primaryAction()
-        } else {
-            content
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+    var body: some View {
+        let settled = coordinator.liveFinalText
+        let tentative = coordinator.liveVolatileText
+        ScrollView {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                if settled.isEmpty && tentative.isEmpty {
+                    Text(AppCopy.liveTextPlaceholder)
+                        .foregroundStyle(.secondary)
+                }
+                if !settled.isEmpty {
+                    Text(settled)
+                }
+                if !tentative.isEmpty {
+                    Text(tentative)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.title3)
+            .fontDesign(DesignTokens.wordsFontDesign)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(DesignTokens.Spacing.l)
         }
+        .defaultScrollAnchor(.bottom, for: .sizeChanges)
+        .frame(maxHeight: .infinity)
+        .background(.fill.quinary, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
     }
 }

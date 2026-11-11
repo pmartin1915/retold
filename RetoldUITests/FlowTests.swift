@@ -132,6 +132,30 @@ final class FlowTests: XCTestCase {
         attach(app, named: "check-filed-pill")
     }
 
+    /// Dark mode (comeup run 3): Home, the recorder and a story page in the dark palette, so the
+    /// accent, OnAccent and card colours are seen in both appearances. `-RetoldDark` is DEBUG only.
+    func testDarkModeMainScreens() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-RetoldDemo", "-RetoldDark"]
+        app.launch()
+
+        let recordButton = app.buttons["Record a memory"].firstMatch
+        XCTAssertTrue(recordButton.waitForExistence(timeout: 10), "Home did not appear in dark mode")
+        settle(1.0)
+        attach(app, named: "check-dark-home")
+
+        recordButton.tap()
+        let stopButton = app.buttons["Stop"].firstMatch
+        XCTAssertTrue(stopButton.waitForExistence(timeout: 10), "Recorder did not appear in dark mode")
+        settle(2.0)
+        attach(app, named: "check-dark-recorder")
+        stopButton.tap()
+        XCTAssertTrue(recordButton.waitForExistence(timeout: 10), "Stop did not return Home")
+
+        guard openStory(in: app) else { return }
+        attach(app, named: "check-dark-story")
+    }
+
     /// Opens the demo story "Summers at the lake house" from Home.
     private func openStory(in app: XCUIApplication) -> Bool {
         let story = app.descendants(matching: .any)

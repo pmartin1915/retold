@@ -35,6 +35,8 @@ enum AppCopy {
     static let startingLabel = "Getting ready…"
     /// Recorder state label while the file is being finalized after Stop.
     static let savingLabel = "Saving…"
+    /// Recorder: the live-words area before the first words arrive (comeup run 3).
+    static let liveTextPlaceholder = "Start talking whenever you’re ready. Your words will appear here."
     /// VoiceOver label for the playback scrubber.
     static let playbackPosition = "Playback position"
     /// VoiceOver label prefix for a remove (trash) button; the item name follows.
