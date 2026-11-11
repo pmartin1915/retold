@@ -49,6 +49,9 @@ struct RetoldApp: App {
             }
             // comeup run 4: every screen sits on BoardBound's warm canvas, never the system white.
             .background(DesignTokens.canvas.ignoresSafeArea())
+            // Touching UINavigationBar.appearance() in init() dropped the Info.plist accent to
+            // system blue in CI; name the family-line terracotta explicitly instead of relying on it.
+            .tint(Color("AccentColor"))
             .preferredColorScheme(Self.harnessColorScheme)
             .task {
                 startServices()
