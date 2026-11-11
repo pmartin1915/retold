@@ -536,6 +536,13 @@ final class CaptureCoordinatorTests: XCTestCase {
             segment: TranscriptSegment(text: "journaled", start: 0, end: 1, isFinal: true))))
         harness.coordinator.handle(.volatile(captureID: captureID, text: "xyz"))
         XCTAssertEqual(harness.coordinator.liveText, "journaled xyz")
+        // comeup run 3: settled and tentative words are kept apart for the recorder.
+        XCTAssertEqual(harness.coordinator.liveFinalText, "journaled")
+        XCTAssertEqual(harness.coordinator.liveVolatileText, "xyz")
+        harness.coordinator.handle(.recorder(.finalSegment(
+            captureID: captureID, run: 0,
+            segment: TranscriptSegment(text: "second", start: 1, end: 2, isFinal: true))))
+        XCTAssertEqual(harness.coordinator.liveFinalText, "journaled second")
         harness.coordinator.send(.tapStop)
         harness.coordinator.handle(.recorder(.engineStopped(captureID: captureID, duration: 1)))
         await harness.coordinator.drainEffects()

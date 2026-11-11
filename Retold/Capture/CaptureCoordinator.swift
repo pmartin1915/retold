@@ -19,7 +19,16 @@ struct CaptureLengthLimits: Equatable, Sendable {
 @MainActor @Observable
 final class CaptureCoordinator {
     private(set) var state: RecorderState
-    private(set) var liveText: String = ""        // UI only: journaled finals joined by " " + current volatile; reset at startEngine
+    /// UI only, reset at startEngine. comeup run 3: finals and the volatile tail are kept apart so a
+    /// volatile result (many per second) changes one short string instead of rebuilding the whole
+    /// transcript, and the recorder can show tentative words differently from settled ones.
+    private(set) var liveFinalText: String = ""   // journaled finals joined by " ", appended in place
+    private(set) var liveVolatileText: String = ""  // the current volatile result
+    /// Journaled finals joined by " " + current volatile (the pre-run-3 single string; tests).
+    var liveText: String {
+        liveFinalText.isEmpty ? liveVolatileText
+            : (liveVolatileText.isEmpty ? liveFinalText : liveFinalText + " " + liveVolatileText)
+    }
     private(set) var journalError: Error?         // last journal failure, for the UI
     private(set) var startFailure: String?        // why the last start failed, for the UI alert
     private(set) var processedEventCount = 0      // incremented after each handled event (tests)
@@ -47,8 +56,6 @@ final class CaptureCoordinator {
     @ObservationIgnored private var outstandingEngineCalls = 0
     @ObservationIgnored private var filePassTask: Task<Void, Never>?
     @ObservationIgnored private var rerunRequested = false
-    @ObservationIgnored private var journaledFinalTexts: [String] = []
-    @ObservationIgnored private var currentVolatile: String = ""
     @ObservationIgnored private var degradedCaptures: Set<UUID> = []   // a journal append failed
     @ObservationIgnored private var recordedBeforeSegment: TimeInterval = 0   // closed .recording stretches
     @ObservationIgnored private var segmentStart: Date?                       // the open .recording stretch
@@ -135,8 +142,7 @@ final class CaptureCoordinator {
             }
             send(recorderEvent)
         case .volatile(_, let text):
-            currentVolatile = text
-            rebuildLiveText()
+            liveVolatileText = text
         }
     }
 
@@ -186,8 +192,7 @@ final class CaptureCoordinator {
                 do {
                     try writer.append(record)
                     if record.kind == .segment, let text = record.text {
-                        journaledFinalTexts.append(text)
-                        rebuildLiveText()
+                        liveFinalText = liveFinalText.isEmpty ? text : liveFinalText + " " + text
                     }
                 } catch {
                     journalError = error        // the audio is the record; recording continues
@@ -221,9 +226,8 @@ final class CaptureCoordinator {
                 outstandingEngineCalls -= 1
                 return
             }
-            journaledFinalTexts = []
-            currentVolatile = ""
-            liveText = ""
+            liveFinalText = ""
+            liveVolatileText = ""
             await engine.start(captureID: captureID, audioURL: files.audioURL(for: captureID), route: route)
         case .pauseEngine(let captureID):
             await engine.pause(captureID: captureID)
@@ -235,12 +239,6 @@ final class CaptureCoordinator {
             break   // handled synchronously in the drain
         }
         outstandingEngineCalls -= 1
-    }
-
-    private func rebuildLiveText() {
-        let joined = journaledFinalTexts.joined(separator: " ")
-        liveText = joined.isEmpty ? currentVolatile
-            : (currentVolatile.isEmpty ? joined : joined + " " + currentVolatile)
     }
 
     // MARK: - Length limit (§7a)

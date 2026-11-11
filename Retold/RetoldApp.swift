@@ -32,10 +32,21 @@ struct RetoldApp: App {
                     LaunchView()
                 }
             }
+            .preferredColorScheme(Self.harnessColorScheme)
             .task {
                 startServices()
             }
         }
+    }
+
+    /// `-RetoldDark` (FlowTests only) renders the app in dark mode so CI captures the dark palette.
+    /// Release builds always follow the system.
+    private static var harnessColorScheme: ColorScheme? {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-RetoldDark") ? .dark : nil
+        #else
+        nil
+        #endif
     }
 
     /// Opens storage and the capture services; a failure shows the error state, whose Try again
