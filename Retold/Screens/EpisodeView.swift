@@ -130,7 +130,9 @@ struct EpisodeView: View {
                             .foregroundStyle(.tint)
                         Text(segment.text)
                             .fontDesign(DesignTokens.wordsFontDesign)
-                            .foregroundStyle(.primary)
+                            // Color.primary, not .primary: inside a borderless button .primary
+                            // resolves to the button's tint (seen in run 3's first screenshots).
+                            .foregroundStyle(Color.primary)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }

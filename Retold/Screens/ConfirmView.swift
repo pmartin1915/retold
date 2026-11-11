@@ -15,6 +15,7 @@ struct ConfirmView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = true
     @Query(sort: \Period.sortOrder) private var periods: [Period]
     @Query(sort: \Person.name) private var people: [Person]
@@ -407,13 +408,12 @@ struct ConfirmView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: DesignTokens.Spacing.s) {
-                    suggestionButtons(text: text, state: state, accept: accept, reject: reject)
-                }
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
-                    suggestionButtons(text: text, state: state, accept: accept, reject: reject)
-                }
+            // Side by side normally; stacked at accessibility text sizes so neither label clips.
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: DesignTokens.Spacing.s))
+                : AnyLayout(HStackLayout(spacing: DesignTokens.Spacing.s))
+            layout {
+                suggestionButtons(text: text, state: state, accept: accept, reject: reject)
             }
         }
         .padding(.vertical, DesignTokens.Spacing.xs)
@@ -433,7 +433,6 @@ struct ConfirmView: View {
             choiceTick += 1
         } label: {
             Label(acceptTitle, systemImage: accepted ? "checkmark.circle.fill" : "checkmark")
-                .fixedSize()
                 .frame(minHeight: 44)
         }
         .modifier(ChoiceStyle(chosen: accepted))
@@ -444,7 +443,6 @@ struct ConfirmView: View {
             choiceTick += 1
         } label: {
             Label(AppCopy.rejectButton, systemImage: "xmark")
-                .fixedSize()
                 .frame(minHeight: 44)
         }
         .buttonStyle(.bordered)
