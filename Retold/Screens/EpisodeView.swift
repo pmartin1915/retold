@@ -45,13 +45,7 @@ struct EpisodeView: View {
         // shows nothing: the wrapping header above is the one visible title (comeup run 3, C11).
         .navigationTitle(facts.title ?? AppCopy.untitled)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .accessibilityHidden(true)
-            }
-        }
+        .toolbar(removing: .title)
     }
 
     private var sortedCaptures: [Capture] {

@@ -80,6 +80,9 @@ enum AppCopy {
     static let whatYouSaidHeader = "What you said"
     /// Confirm flow: the fold over people, places and questions for later (comeup run 3, F4).
     static let moreDetails = "More details"
+    /// VoiceOver values for the More details fold.
+    static let expandedValue = "Expanded"
+    static let collapsedValue = "Collapsed"
     /// Confirm flow: how many suggestions wait inside the fold.
     static func suggestionsWaiting(_ count: Int) -> String {
         count == 1 ? "1 suggestion" : "\(count) suggestions"
@@ -284,6 +287,8 @@ enum AppCopy {
         acceptedButton,
         whatYouSaidHeader,
         moreDetails,
+        expandedValue,
+        collapsedValue,
         suggestionsWaiting(1),
         suggestionsWaiting(2),
         rejectButton,

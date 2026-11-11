@@ -55,11 +55,13 @@ struct ConfirmView: View {
                         // comeup run 3 (C8): File it is the sheet's one primary action, in thumb
                         // reach, with the reason it is unavailable right above it.
                         .primaryActionBar {
-                            if !current.canFile {
-                                Text(AppCopy.titleNeededHint)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
+                            // Always laid out, shown only while File it is unavailable, so the
+                            // bar does not change height as the first letter of a title is typed.
+                            Text(AppCopy.titleNeededHint)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .opacity(current.canFile ? 0 : 1)
+                                .accessibilityHidden(current.canFile)
                             Button {
                                 file()
                             } label: {
@@ -215,7 +217,9 @@ struct ConfirmView: View {
 
             Section {
                 Button {
-                    showMoreDetails.toggle()
+                    withAnimation(reduceMotion ? nil : DesignTokens.Motion.change) {
+                        showMoreDetails.toggle()
+                    }
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
@@ -239,7 +243,7 @@ struct ConfirmView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .accessibilityValue(showMoreDetails ? Text("expanded") : Text("collapsed"))
+                .accessibilityValue(showMoreDetails ? AppCopy.expandedValue : AppCopy.collapsedValue)
             }
 
             if showMoreDetails {
