@@ -45,7 +45,7 @@ jobs:
         run: python3 harness/tests/test_score.py
 
       - name: Generate fixtures
-        run: harness/make-fixtures.sh harness/generated
+        run: bash harness/make-fixtures.sh harness/generated
 
       - name: Build the harness (app sources compiled for macOS)
         run: |
@@ -113,7 +113,7 @@ jobs:
       # Fixtures first: xcodegen bundles harness/generated as a resource folder.
       - name: Generate fixtures and project
         run: |
-          harness/make-fixtures.sh harness/generated
+          bash harness/make-fixtures.sh harness/generated
           xcodegen generate
 
       - name: Run the harness test
