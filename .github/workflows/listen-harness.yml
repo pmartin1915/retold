@@ -1,0 +1,180 @@
+name: Listening harness
+
+# Measures what the app hears (listening hardening, 2026-11-12): speech fixtures generated with
+# macOS `say` go through the app's own capture code (LiveTranscription + TapSink at real-time
+# pace, then SpeechFileTranscriber), and harness/score.py reports WER, the longest missing stretch
+# and latency as a job summary plus a JSON artifact. Two hosts, because Speech assets may not
+# exist on the iOS simulator: the simulator (RetoldListenHarness scheme) and a macOS command-line
+# build of the same sources. Neither job gates merging; they measure.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Retold/Capture/**'
+      - 'harness/**'
+      - 'RetoldListenHarness/**'
+      - 'project.yml'
+      - '.github/workflows/listen-harness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: listen-harness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-host:
+    name: Harness on a macOS host
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          source .github/scripts/select-xcode.sh
+          sudo xcode-select -s "$RELEASE_XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$RELEASE_XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          sw_vers
+          DEVELOPER_DIR="$RELEASE_XCODE/Contents/Developer" xcodebuild -version
+
+      - name: Scorer unit tests
+        run: python3 harness/tests/test_score.py
+
+      - name: Generate fixtures
+        run: harness/make-fixtures.sh harness/generated
+
+      - name: Build the harness (app sources compiled for macOS)
+        run: |
+          mkdir -p build
+          xcrun --sdk macosx swiftc -O -swift-version 5 \
+            -target arm64-apple-macos26.0 \
+            Retold/Capture/TranscriptionRoute.swift \
+            Retold/Model/Values.swift \
+            Retold/Capture/Device/SpeechModules.swift \
+            Retold/Capture/Device/SpeechFileTranscriber.swift \
+            Retold/Capture/Device/SpeechRouteProbe.swift \
+            Retold/Capture/Device/AssetPrefetch.swift \
+            Retold/Capture/Device/LiveTranscription.swift \
+            harness/Core/*.swift harness/macos/Shims.swift harness/macos/main.swift \
+            -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker harness/macos/Info.plist \
+            -o build/listen-harness
+
+      - name: Run the harness
+        timeout-minutes: 30
+        run: build/listen-harness harness/generated "$RUNNER_TEMP/work" "$RUNNER_TEMP/report-macos.json"
+
+      - name: Score
+        if: always()
+        run: |
+          [ -f "$RUNNER_TEMP/report-macos.json" ] || { echo "No report (the harness did not finish)." >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          baseline=()
+          [ -f harness/baseline/macos.json ] && baseline=(--baseline harness/baseline/macos.json)
+          python3 harness/score.py "$RUNNER_TEMP/report-macos.json" --label "macOS host" "${baseline[@]}" \
+            --metrics-out "$RUNNER_TEMP/metrics-macos.json" --markdown-out "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: listen-harness-macos-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/report-macos.json
+            ${{ runner.temp }}/metrics-macos.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  simulator:
+    name: Harness on the iOS simulator
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          source .github/scripts/select-xcode.sh
+          sudo xcode-select -s "$RELEASE_XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$RELEASE_XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          xcrun simctl list runtimes
+
+      - name: Install XcodeGen
+        run: |
+          curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o /tmp/xcodegen.zip
+          unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
+          XCODEGEN_BIN=$(find /tmp/xcodegen -name "xcodegen" -type f | head -1)
+          sudo cp "$XCODEGEN_BIN" /usr/local/bin/xcodegen
+          sudo chmod +x /usr/local/bin/xcodegen
+
+      # Fixtures first: xcodegen bundles harness/generated as a resource folder.
+      - name: Generate fixtures and project
+        run: |
+          harness/make-fixtures.sh harness/generated
+          xcodegen generate
+
+      - name: Run the harness test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Retold.xcodeproj \
+            -scheme RetoldListenHarness \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -configuration Debug \
+            -parallel-testing-enabled NO \
+            -resultBundlePath "$RUNNER_TEMP/harness.xcresult" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            | tee "$RUNNER_TEMP/sim.log" | xcbeautify
+          grep 'LISTEN_HARNESS:' "$RUNNER_TEMP/sim.log" || true
+
+      - name: Export the report attachment
+        if: always()
+        run: |
+          [ -d "$RUNNER_TEMP/harness.xcresult" ] || exit 0
+          grep 'LISTEN_HARNESS:' "$RUNNER_TEMP/sim.log" || true
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/harness.xcresult" --output-path "$RUNNER_TEMP/raw" || exit 0
+          python3 - <<'PY'
+          import json, os, shutil
+          raw = os.path.join(os.environ["RUNNER_TEMP"], "raw")
+          with open(os.path.join(raw, "manifest.json"), encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          def walk(node):
+              if isinstance(node, dict):
+                  yield node
+                  for value in node.values():
+                      yield from walk(value)
+              elif isinstance(node, list):
+                  for value in node:
+                      yield from walk(value)
+          for entry in walk(manifest):
+              name, exported = entry.get("suggestedHumanReadableName", ""), entry.get("exportedFileName")
+              if name.startswith("listen-harness") and exported:
+                  shutil.copyfile(os.path.join(raw, exported), os.path.join(os.environ["RUNNER_TEMP"], "report-simulator.json"))
+                  print("exported", name)
+                  break
+          PY
+
+      - name: Score
+        if: always()
+        run: |
+          [ -f "$RUNNER_TEMP/report-simulator.json" ] || { echo "No simulator report (see the test log)." >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          baseline=()
+          [ -f harness/baseline/simulator.json ] && baseline=(--baseline harness/baseline/simulator.json)
+          python3 harness/score.py "$RUNNER_TEMP/report-simulator.json" --label "iOS simulator" "${baseline[@]}" \
+            --metrics-out "$RUNNER_TEMP/metrics-simulator.json" --markdown-out "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: listen-harness-simulator-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/report-simulator.json
+            ${{ runner.temp }}/metrics-simulator.json
+            ${{ runner.temp }}/sim.log
+          if-no-files-found: ignore
+          retention-days: 30

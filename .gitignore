@@ -5,6 +5,7 @@ Retold/Info.plist
 RetoldTests/Info.plist
 RetoldControls/Info.plist
 RetoldUITests/Info.plist
+RetoldListenHarness/Info.plist
 xcuserdata/
 DerivedData/
 build/
@@ -19,3 +20,6 @@ build/
 
 # Executor scratch (untracked by design)
 .orchestrate/
+
+# Transcription harness fixtures, generated in CI by harness/make-fixtures.sh
+harness/generated/

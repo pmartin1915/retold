@@ -34,11 +34,8 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         let captureID: UUID
         var file: AVAudioFile?
         var sink: TapSink?
-        var analyzer: SpeechAnalyzer?
-        var analyzerInput: AsyncStream<AnalyzerInput>.Continuation?
-        var resultsTask: Task<Void, Never>?
-        var hasTranscriber = false
-        let resultsFailed = OSAllocatedUnfairLock(initialState: false)
+        /// The live transcriber (LiveTranscription.swift); nil for .audioOnly or a failed start.
+        var transcription: LiveTranscription?
         init(captureID: UUID, file: AVAudioFile) {
             self.captureID = captureID
             self.file = file
@@ -111,11 +108,8 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             throw EngineError.fileCreateFailed
         }
         startStep = "audio file"
-        let file = try AVAudioFile(forWriting: audioURL, settings: [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: inputFormat.sampleRate,
-            AVNumberOfChannelsKey: inputFormat.channelCount,
-        ], commonFormat: .pcmFormatFloat32, interleaved: false)
+        let file = try AVAudioFile(forWriting: audioURL, settings: CaptureAudioFile.settings(for: inputFormat),
+                                   commonFormat: .pcmFormatFloat32, interleaved: false)
         try FileManager.default.setAttributes([.protectionKey: ProtectionPlan.whileRecording],
                                               ofItemAtPath: audioURL.path)
 
@@ -123,47 +117,21 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         active = capture
 
         // Live transcriber (none for .audioOnly): one SpeechAnalyzer fed from the tap.
-        var results: AsyncThrowingStream<SpeechModules.SpeechResultValue, Error>?
-        var builder: AsyncStream<AnalyzerInput>.Continuation?
-        var converter: AVAudioConverter?
         if let module = SpeechModules.module(for: route, live: true) {
             do {
-                // Typed optional so this compiles whether the SDK returns AVAudioFormat or AVAudioFormat?.
-                let bestFormat: AVAudioFormat? = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module])
-                guard let analyzerFormat = bestFormat else { throw EngineError.converterUnavailable }
-                if inputFormat != analyzerFormat {
-                    guard let made = AVAudioConverter(from: inputFormat, to: analyzerFormat) else {
-                        throw EngineError.converterUnavailable
-                    }
-                    converter = made
-                }   // identical formats (rate, channels, sample type): pass buffers through
-                let (input, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
-                let analyzer = SpeechAnalyzer(modules: [module])
-                capture.analyzer = analyzer
-                capture.analyzerInput = inputBuilder
-                try await analyzer.start(inputSequence: input)
-                capture.hasTranscriber = true
-                builder = inputBuilder
-                // The mapped stream (Sendable) is what the task captures, not the module.
-                results = SpeechModules.results(of: module)
+                capture.transcription = try await LiveTranscription.start(module: module,
+                                                                          inputFormat: inputFormat)
             } catch {
                 // Audio first (PLAN section 1): a transcriber that cannot start (assets not yet
                 // downloaded, an unsupported locale) must never cost the user the recording. Carry
                 // on as audio-only; the file pass transcribes later, or the user files by title.
-                if let failed = capture.analyzer {
-                    await failed.cancelAndFinishNow()
-                }
-                capture.analyzer = nil
-                capture.analyzerInput = nil
-                capture.hasTranscriber = false
-                results = nil
-                builder = nil
-                converter = nil
+                capture.transcription = nil
             }
         }
+        let transcription = capture.transcription
 
         startStep = "tap"
-        let sink = TapSink(file: file, converter: converter, builder: builder)
+        let sink = TapSink(file: file, converter: transcription?.converter, builder: transcription?.input)
         capture.sink = sink
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { buffer, _ in
             sink.consume(buffer)
@@ -177,27 +145,21 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
 
         // Order matters (spec 4.1): both yields precede any result the task can produce.
         eventsContinuation.yield(.recorder(.engineStarted(captureID: captureID)))
-        guard let results else { return }
+        guard let transcription else { return }
         eventsContinuation.yield(.recorder(
             .transcriberRunStarted(captureID: captureID, run: 0, audioOffset: 0)))
 
         let continuation = eventsContinuation
-        capture.resultsTask = Task {
-            do {
-                for try await result in results {
-                    if result.isFinal {
-                        continuation.yield(.recorder(.finalSegment(
-                            captureID: captureID, run: 0,
-                            segment: TranscriptSegment(text: result.text,
-                                                       start: result.start,
-                                                       end: result.end,
-                                                       isFinal: true))))
-                    } else {
-                        continuation.yield(.volatile(captureID: captureID, text: result.text))
-                    }
-                }
-            } catch {
-                capture.resultsFailed.withLock { $0 = true }
+        transcription.startResults { result in
+            if result.isFinal {
+                continuation.yield(.recorder(.finalSegment(
+                    captureID: captureID, run: 0,
+                    segment: TranscriptSegment(text: result.text,
+                                               start: result.start,
+                                               end: result.end,
+                                               isFinal: true))))
+            } else {
+                continuation.yield(.volatile(captureID: captureID, text: result.text))
             }
         }
     }
@@ -269,21 +231,12 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         }
         engine.stop()
 
-        if capture.hasTranscriber, let analyzer = capture.analyzer {
-            capture.analyzerInput?.finish()
-            do {
-                try await analyzer.finalizeAndFinishThroughEndOfInput()
-            } catch {
-                capture.resultsFailed.withLock { $0 = true }
-                await analyzer.cancelAndFinishNow()     // so the results stream terminates
-            }
-            if let resultsTask = capture.resultsTask {
-                await resultsTask.value     // drain the remaining finals before transcriberEnded
-            }
+        if let transcription = capture.transcription {
+            // Finalizes through the end of input and drains the remaining finals before transcriberEnded.
+            let completed = await transcription.finish()
             let writeFailed = capture.sink?.writeError ?? false
-            let resultsFailed = capture.resultsFailed.withLock { $0 }
             eventsContinuation.yield(.recorder(
-                .transcriberEnded(captureID: captureID, run: 0, completed: !resultsFailed && !writeFailed)))
+                .transcriberEnded(captureID: captureID, run: 0, completed: completed && !writeFailed)))
         }
 
         // Close explicitly so the m4a is finalized before the importer or duration probe reads it.
@@ -296,7 +249,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             duration = 0
         }
         capture.file = nil
-        capture.analyzer = nil
+        capture.transcription = nil
         capture.sink = nil
         self.active = nil
         try? session.setActive(false, options: .notifyOthersOnDeactivation)
@@ -353,11 +306,9 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             tapInstalled = false
         }
         engine.stop()
-        active?.analyzerInput?.finish()
-        if let analyzer = active?.analyzer {
-            await analyzer.cancelAndFinishNow()
+        if let transcription = active?.transcription {
+            await transcription.cancel()
         }
-        active?.resultsTask?.cancel()
         active?.file?.close()
         active = nil
         // Delete the audio file only if it is zero bytes (spec 7).
@@ -371,65 +322,6 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
     var events: AsyncStream<CaptureEngineEvent> { eventsStream }
 
     private enum EngineError: Error {
-        case fileCreateFailed, converterUnavailable, inputFormatChanged, noInput
-    }
-}
-
-/// The tap's only contact: writes each buffer to the audio file, then converts and forwards
-/// it to the SpeechAnalyzer input. A write error is flagged, never thrown (a tap must not
-/// throw). @unchecked Sendable: the tap delivers buffers on the audio thread; the only state
-/// read from elsewhere is the lock-protected write-error flag.
-final class TapSink: @unchecked Sendable {
-    private let file: AVAudioFile
-    private let converter: AVAudioConverter?
-    private let builder: AsyncStream<AnalyzerInput>.Continuation?
-    private let writeErrorFlag = OSAllocatedUnfairLock(initialState: false)
-
-    var writeError: Bool { writeErrorFlag.withLock { $0 } }
-
-    init(file: AVAudioFile, converter: AVAudioConverter?,
-         builder: AsyncStream<AnalyzerInput>.Continuation?) {
-        self.file = file
-        self.converter = converter
-        self.builder = builder
-    }
-
-    func consume(_ buffer: AVAudioPCMBuffer) {
-        do {
-            try file.write(from: buffer)
-        } catch {
-            writeErrorFlag.withLock { $0 = true }
-            return
-        }
-        guard let builder else { return }
-        if converter != nil {
-            guard let converted = convert(buffer) else { return }
-            builder.yield(AnalyzerInput(buffer: converted))
-        } else {
-            builder.yield(AnalyzerInput(buffer: buffer))
-        }
-    }
-
-    private func convert(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
-        guard let converter else { return nil }
-        let outputFormat = converter.outputFormat
-        let ratio = outputFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount((Double(buffer.frameLength) * ratio).rounded(.up)) + 1
-        guard let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else {
-            return nil
-        }
-        var providedInput = false
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, inputStatus in
-            if providedInput {
-                inputStatus.pointee = .noDataNow
-                return nil
-            }
-            providedInput = true
-            inputStatus.pointee = .haveData
-            return buffer
-        }
-        guard status != .error, output.frameLength > 0 else { return nil }
-        return output
+        case fileCreateFailed, inputFormatChanged, noInput
     }
 }

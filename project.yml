@@ -113,6 +113,33 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
 
+  RetoldListenHarness:
+    # Transcription harness (listening hardening, 2026-11-12). Its own scheme and workflow
+    # (listen-harness.yml): it runs in real time and needs Speech assets, so it never runs in the
+    # Retold scheme. harness/generated holds the CI-generated fixtures (gitignored, optional).
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - RetoldListenHarness
+      - harness/Core
+      - path: harness/generated
+        type: folder
+        buildPhase: resources
+        optional: true
+    dependencies:
+      - target: Retold
+    settings:
+      base:
+        PRODUCT_NAME: RetoldListenHarness
+        PRODUCT_BUNDLE_IDENTIFIER: dev.pmartin1915.retold.listenharness
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Retold.app/Retold
+        BUNDLE_LOADER: $(TEST_HOST)
+    info:
+      path: RetoldListenHarness/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+
   RetoldUITests:
     # App Store screenshot lane. UI tests live in their own scheme (RetoldScreenshots) so the
     # normal Build & Test lane never runs them.
@@ -154,5 +181,16 @@ schemes:
     test:
       targets:
         - RetoldUITests
+    run:
+      config: Debug
+
+  RetoldListenHarness:
+    build:
+      targets:
+        Retold: all
+        RetoldListenHarness: all
+    test:
+      targets:
+        - RetoldListenHarness
     run:
       config: Debug
