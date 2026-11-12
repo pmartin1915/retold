@@ -23,3 +23,4 @@ build/
 
 # Transcription harness fixtures, generated in CI by harness/make-fixtures.sh
 harness/generated/
+__pycache__/

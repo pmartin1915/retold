@@ -137,9 +137,19 @@ final class TapSink: @unchecked Sendable {
     /// Buffers written to the file but never handed to the analyzer because conversion produced
     /// nothing (diagnostics: a dropped chunk the live text never hears).
     private let convertDropCount = OSAllocatedUnfairLock(initialState: 0)
+    /// Buffer arrival timing (diagnostics): a long gap with no interruption means the engine
+    /// stopped delivering audio.
+    struct BufferTiming: Sendable {
+        var count = 0
+        var lastUptime: UInt64 = 0
+        var maxGap = 0.0
+        var gapsOverOneSecond = 0
+    }
+    private let timing = OSAllocatedUnfairLock(initialState: BufferTiming())
 
     var writeError: Bool { writeErrorFlag.withLock { $0 } }
     var convertDrops: Int { convertDropCount.withLock { $0 } }
+    var bufferTiming: BufferTiming { timing.withLock { $0 } }
 
     init(file: AVAudioFile, converter: AVAudioConverter?,
          builder: AsyncStream<AnalyzerInput>.Continuation?) {
@@ -149,6 +159,16 @@ final class TapSink: @unchecked Sendable {
     }
 
     func consume(_ buffer: AVAudioPCMBuffer) {
+        let now = DispatchTime.now().uptimeNanoseconds
+        timing.withLock { timing in
+            if timing.lastUptime != 0 {
+                let gap = Double(now &- timing.lastUptime) / 1e9
+                timing.maxGap = max(timing.maxGap, gap)
+                if gap > 1 { timing.gapsOverOneSecond += 1 }
+            }
+            timing.lastUptime = now
+            timing.count += 1
+        }
         do {
             try file.write(from: buffer)
         } catch {

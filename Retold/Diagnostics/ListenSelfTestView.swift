@@ -53,6 +53,7 @@ struct ListenSelfTestView: View {
     @State private var running = false
     @State private var lines: [String] = []
     @State private var reportURL: URL?
+    @State private var statsCount = 0
 
     var body: some View {
         Form {
@@ -69,6 +70,18 @@ struct ListenSelfTestView: View {
                     }
                 }
             }
+            Section {
+                if statsCount > 0, let url = CaptureStatsLog.url {
+                    ShareLink(item: url) {
+                        Text("Share capture stats (\(statsCount) recordings)")
+                    }
+                } else {
+                    Text("No capture stats yet. Record a story on this build, then come back.")
+                        .font(.footnote)
+                }
+            } footer: {
+                Text("Counts and timings for your recent recordings on this build: no words, no audio.")
+            }
             if !lines.isEmpty {
                 Section("Progress") {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
@@ -79,6 +92,9 @@ struct ListenSelfTestView: View {
             }
         }
         .navigationTitle("Listening self-test")
+        .onAppear {
+            statsCount = CaptureStatsLog.load().count
+        }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }

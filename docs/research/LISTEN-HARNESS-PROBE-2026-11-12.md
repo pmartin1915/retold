@@ -39,3 +39,11 @@ Tradeoffs:
 
 CI keeps running the harness on every PR as a compile-and-plumbing check. It reports "no speech route on this
 host" honestly rather than inventing numbers.
+
+## Fixtures in the app bundle
+
+`Retold/Diagnostics/ListenFixtures/` holds the CI-generated recordings (run 43319779247, artifact
+`listen-fixtures-3`), converted with `afconvert -d aac -b 64000` (48 kHz mono, about 1.5 MB in total) plus the
+reference text and, for three fixtures, a `.names` list of the names and places used as contextual strings.
+They are AAC-compressed, but decoding still gives 48 kHz Float32, so the live path takes the same converter
+branch as the iPhone mic. To regenerate them, download the `listen-fixtures-N` artifact from any harness run.

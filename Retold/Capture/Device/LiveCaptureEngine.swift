@@ -26,6 +26,9 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
     /// Which start step is running, so a failure names it (touched only by start/startUnsafe).
     private var startStep = "begin"
     private let startFailure = OSAllocatedUnfairLock<String?>(initialState: nil)
+    /// Diagnostics for the capture in flight (CaptureStats.swift); nil unless CaptureStatsLog.enabled.
+    private let stats = OSAllocatedUnfairLock<CaptureStats?>(initialState: nil)
+    private let statsStart = OSAllocatedUnfairLock<UInt64>(initialState: 0)
 
     var lastStartFailure: String? { startFailure.withLock { $0 } }
 
@@ -144,6 +147,16 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         try engine.start()
         activeFlag.withLockUnchecked { $0 = (true, inputFormat) }
 
+        if CaptureStatsLog.enabled {
+            statsStart.withLock { $0 = DispatchTime.now().uptimeNanoseconds }
+            stats.withLock {
+                $0 = CaptureStats(startedAt: Date(), route: route.journalTag, inputFormat: "\(inputFormat)",
+                                  transcriberStarted: transcription != nil)
+            }
+        } else {
+            stats.withLock { $0 = nil }
+        }
+
         // Order matters (spec 4.1): both yields precede any result the task can produce.
         eventsContinuation.yield(.recorder(.engineStarted(captureID: captureID)))
         guard let transcription else { return }
@@ -151,7 +164,21 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             .transcriberRunStarted(captureID: captureID, run: 0, audioOffset: 0)))
 
         let continuation = eventsContinuation
+        let stats = self.stats
+        let statsStart = self.statsStart
         transcription.startResults { result in
+            stats.withLock { record in
+                guard record != nil else { return }
+                let started = statsStart.withLock { $0 }
+                let after = Double(DispatchTime.now().uptimeNanoseconds &- started) / 1e9
+                if result.isFinal {
+                    record?.finals += 1
+                    if record?.firstFinalAfter == nil { record?.firstFinalAfter = after }
+                } else {
+                    record?.volatiles += 1
+                    if record?.firstVolatileAfter == nil { record?.firstVolatileAfter = after }
+                }
+            }
             if result.isFinal {
                 continuation.yield(.recorder(.finalSegment(
                     captureID: captureID, run: 0,
@@ -231,11 +258,15 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             tapInstalled = false
         }
         engine.stop()
+        let stopUptime = DispatchTime.now().uptimeNanoseconds
+        let finalsBeforeStop = stats.withLock { $0?.finals ?? 0 }
 
+        var transcriberCompleted: Bool?
         if let transcription = capture.transcription {
             // Finalizes through the end of input and drains the remaining finals before transcriberEnded.
             let completed = await transcription.finish(flushing: capture.sink)
             let writeFailed = capture.sink?.writeError ?? false
+            transcriberCompleted = completed && !writeFailed
             eventsContinuation.yield(.recorder(
                 .transcriberEnded(captureID: captureID, run: 0, completed: completed && !writeFailed)))
         }
@@ -249,6 +280,26 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         } else {
             duration = 0
         }
+        if var record = stats.withLock({ $0 }) {
+            let now = DispatchTime.now().uptimeNanoseconds
+            let started = statsStart.withLock { $0 }
+            if let sink = capture.sink {
+                let timing = sink.bufferTiming
+                record.buffers = timing.count
+                record.maxBufferGap = timing.maxGap
+                record.gapsOverOneSecond = timing.gapsOverOneSecond
+                record.convertDrops = sink.convertDrops
+                record.writeError = sink.writeError
+            }
+            record.finalsAfterStop = record.finals - finalsBeforeStop
+            record.recordedSeconds = duration
+            record.wallSeconds = Double(stopUptime &- started) / 1e9
+            record.stopToDone = Double(now &- stopUptime) / 1e9
+            record.transcriberCompleted = transcriberCompleted
+            CaptureStatsLog.append(record)
+            stats.withLock { $0 = nil }
+        }
+
         capture.file = nil
         capture.transcription = nil
         capture.sink = nil
@@ -269,6 +320,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
                   let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
             switch type {
             case .began:
+                self.stats.withLock { $0?.interruptions += 1 }
                 self.eventsContinuation.yield(.recorder(.interruptionBegan))
             case .ended:
                 let raw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
@@ -283,6 +335,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
             forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: nil
         ) { [weak self] _ in
             guard let self, self.activeFlag.withLockUnchecked({ $0.active }) else { return }
+            self.stats.withLock { $0?.mediaResets += 1 }
             self.eventsContinuation.yield(.recorder(.mediaServicesReset))
         }
         // A route change mid-capture (headset, Bluetooth HFP) can change the input format; the
@@ -292,8 +345,15 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         ) { [weak self] _ in
             guard let self else { return }
             let state = self.activeFlag.withLockUnchecked { $0 }
-            guard state.active,
-                  self.engine.inputNode.outputFormat(forBus: 0) != state.format else { return }
+            guard state.active else { return }
+            let sameFormat = self.engine.inputNode.outputFormat(forBus: 0) == state.format
+            let running = self.engine.isRunning
+            self.stats.withLock { record in
+                record?.configChanges += 1
+                if sameFormat { record?.configChangesSameFormat += 1 }
+                record?.engineRunningAfterConfigChange.append(running)
+            }
+            guard !sameFormat else { return }
             self.eventsContinuation.yield(.recorder(.engineFailed))
         }
     }
