@@ -27,7 +27,14 @@ targets:
     type: application
     platform: iOS
     sources:
-      - Retold
+      - path: Retold
+        excludes:
+          - "Diagnostics/ListenFixtures"
+      # Listening self-test recordings (harness/make-fixtures.sh), one folder in the bundle.
+      - path: Retold/Diagnostics/ListenFixtures
+        type: folder
+        buildPhase: resources
+        optional: true
     dependencies:
       # The Action-button / Control Center control (R6 spec section 8). Embedded under PlugIns.
       - target: RetoldControls
@@ -121,7 +128,6 @@ targets:
     platform: iOS
     sources:
       - RetoldListenHarness
-      - harness/Core
       - path: harness/generated
         type: folder
         buildPhase: resources

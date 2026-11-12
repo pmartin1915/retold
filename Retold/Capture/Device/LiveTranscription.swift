@@ -28,6 +28,7 @@ final class LiveTranscription: @unchecked Sendable {
     let input: AsyncStream<AnalyzerInput>.Continuation
     /// nil when the input format already equals the analyzer format (buffers pass through).
     let converter: AVAudioConverter?
+    let tuning: ListenTuning
     private let results: AsyncThrowingStream<SpeechModules.SpeechResultValue, Error>
     private var resultsTask: Task<Void, Never>?
     private let resultsFailed = OSAllocatedUnfairLock(initialState: false)
@@ -35,16 +36,21 @@ final class LiveTranscription: @unchecked Sendable {
     private init(analyzer: SpeechAnalyzer,
                  input: AsyncStream<AnalyzerInput>.Continuation,
                  converter: AVAudioConverter?,
+                 tuning: ListenTuning,
                  results: AsyncThrowingStream<SpeechModules.SpeechResultValue, Error>) {
         self.analyzer = analyzer
         self.input = input
         self.converter = converter
+        self.tuning = tuning
         self.results = results
     }
 
     /// Builds the converter, starts the analyzer and subscribes to its results. Throws if any step
-    /// fails; an analyzer that was created is cancelled first.
-    static func start(module: any SpeechModule, inputFormat: AVAudioFormat) async throws -> LiveTranscription {
+    /// fails; an analyzer that was created is cancelled first. `module` must have been built with
+    /// the same `tuning` (SpeechModules.module(for:live:tuning:)).
+    static func start(module: any SpeechModule, inputFormat: AVAudioFormat,
+                      tuning: ListenTuning = .shipping,
+                      contextualStrings: [String] = []) async throws -> LiveTranscription {
         // Typed optional so this compiles whether the SDK returns AVAudioFormat or AVAudioFormat?.
         let bestFormat: AVAudioFormat? = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module])
         guard let analyzerFormat = bestFormat else { throw LiveTranscriptionError.converterUnavailable }
@@ -56,7 +62,9 @@ final class LiveTranscription: @unchecked Sendable {
             converter = made
         }   // identical formats (rate, channels, sample type): pass buffers through
         let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
-        let analyzer = SpeechAnalyzer(modules: [module])
+        let analyzer = await SpeechModules.makeAnalyzer(module: module, tuning: tuning,
+                                                        contextualStrings: contextualStrings,
+                                                        format: analyzerFormat)
         do {
             try await analyzer.start(inputSequence: inputSequence)
         } catch {
@@ -66,7 +74,7 @@ final class LiveTranscription: @unchecked Sendable {
         // The mapped stream (Sendable) is what the results task captures, not the module.
         let results = SpeechModules.results(of: module)
         return LiveTranscription(analyzer: analyzer, input: inputBuilder,
-                                 converter: converter, results: results)
+                                 converter: converter, tuning: tuning, results: results)
     }
 
     /// Starts the task that hands each result, in order, to `handler`. Call once.
@@ -86,7 +94,12 @@ final class LiveTranscription: @unchecked Sendable {
 
     /// Ends the input, finalizes through the end of the input, and waits until every remaining
     /// result has been handed to the handler. True only if the run finished without error.
-    func finish() async -> Bool {
+    /// Call after the last buffer reached `sink`; with `tuning.flushConverter` the converter's
+    /// held-back frames go to the analyzer first.
+    func finish(flushing sink: TapSink?) async -> Bool {
+        if tuning.flushConverter {
+            sink?.flush()
+        }
         input.finish()
         do {
             try await analyzer.finalizeAndFinishThroughEndOfInput()
@@ -151,6 +164,23 @@ final class TapSink: @unchecked Sendable {
             builder.yield(AnalyzerInput(buffer: converted))
         } else {
             builder.yield(AnalyzerInput(buffer: buffer))
+        }
+    }
+
+    /// Converts what the converter still holds (end of stream) and hands it to the analyzer.
+    /// Call once, after the last consume (the tap is removed and the engine stopped).
+    func flush() {
+        guard let converter, let builder else { return }
+        guard let output = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: 8192) else {
+            return
+        }
+        var error: NSError?
+        let status = converter.convert(to: output, error: &error) { _, inputStatus in
+            inputStatus.pointee = .endOfStream
+            return nil
+        }
+        if status != .error, output.frameLength > 0 {
+            builder.yield(AnalyzerInput(buffer: output))
         }
     }
 

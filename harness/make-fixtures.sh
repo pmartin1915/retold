@@ -25,6 +25,7 @@ grep -v '^#' "$here/fixtures.tsv" | while IFS=$'\t' read -r name script candidat
   if [ -z "$voice" ]; then echo "No English voice for $name"; exit 1; fi
   say -v "$voice" -r "$rate" -f "$here/scripts/$script.say" \
       -o "$out/$name.wav" --file-format=WAVE --data-format=LEF32@48000
+  if [ -f "$here/scripts/$script.names" ]; then cp "$here/scripts/$script.names" "$out/$name.names"; fi
   sed -E 's/\[\[[^]]*\]\]//g' "$here/scripts/$script.say" | tr -s ' \n' ' ' | sed -E 's/^ +| +$//g' > "$out/$name.txt"
   printf '%s\tvoice=%s\trate=%s\t%s\n' "$name" "$voice" "$rate" "$(afinfo "$out/$name.wav" | grep -E 'duration|Data format' | tr '\n' ' ')"
 done

@@ -2,13 +2,12 @@ import AVFoundation
 import Foundation
 import os
 import Speech
-#if canImport(Retold)
-@testable import Retold
-#endif
 
 // The transcription harness core (listening hardening, 2026-11-12). It drives the app's own capture
 // code with recorded speech and records raw timings; harness/score.py turns them into WER, missing
-// stretches and latency. Two hosts compile this file:
+// stretches and latency. Three hosts run it:
+// - the Listening self-test inside the app (TestFlight and Debug only, ListenSelfTestView), the only
+//   host with a working recognizer (docs/research/LISTEN-HARNESS-PROBE-2026-11-12.md);
 // - the RetoldListenHarness test bundle on the iOS simulator (`@testable import Retold`);
 // - a macOS command-line build that compiles the same app sources directly (harness/macos/).
 // Only platform-neutral app code is used: SpeechModules, LiveTranscription, TapSink,
@@ -46,6 +45,7 @@ struct HarnessFixtureResult: Codable, Sendable {
     let name: String
     let reference: String
     let duration: Double
+    var contextualStrings: [String] = []
     var live: HarnessLiveRun?
     var fileFromRecording: HarnessFilePass?
     var fileFromSource: HarnessFilePass?
@@ -63,37 +63,52 @@ struct HarnessProbe: Codable, Sendable {
     var notes: [String] = []
 }
 
-struct HarnessReport: Codable, Sendable {
-    var schema = "retold-listen-harness/v1"
-    var variant = ""
-    var probe = HarnessProbe()
+/// One tuning's results over every fixture.
+struct HarnessVariant: Codable, Sendable {
+    let tuning: ListenTuning
     var fixtures: [HarnessFixtureResult] = []
 }
 
-/// A fixture on disk: `<name>.wav` (48 kHz Float32 mono, like the iPhone mic) and `<name>.txt`
-/// (the reference words).
+struct HarnessReport: Codable, Sendable {
+    var schema = "retold-listen-harness/v2"
+    var probe = HarnessProbe()
+    var startedAt = ""
+    var finishedAt = ""
+    /// Per fixture, the order the tunings ran in (rotated, so a warm model is not credited to a tuning).
+    var order: [String: [String]] = [:]
+    var variants: [HarnessVariant] = []
+}
+
+/// A fixture on disk: `<name>.wav` or `<name>.m4a` (48 kHz mono, like the iPhone mic), `<name>.txt`
+/// (the reference words), and optionally `<name>.names` (contextual strings, one per line: the
+/// names and places a user would already have filed).
 struct HarnessFixture: Sendable {
     let name: String
     let audioURL: URL
     let reference: String
+    let contextualStrings: [String]
 
     static func load(from directory: URL) -> [HarnessFixture] {
-        let names = ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? [])
-            .filter { $0.hasSuffix(".wav") }
-            .sorted()
-        return names.compactMap { file in
+        let files = ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []).sorted()
+        return files.compactMap { file in
+            guard file.hasSuffix(".wav") || file.hasSuffix(".m4a") else { return nil }
             let name = String(file.dropLast(4))
             let audio = directory.appendingPathComponent(file)
             let textURL = directory.appendingPathComponent(name + ".txt")
             guard let reference = try? String(contentsOf: textURL, encoding: .utf8) else { return nil }
-            return HarnessFixture(name: name, audioURL: audio, reference: reference)
+            let namesURL = directory.appendingPathComponent(name + ".names")
+            let names = ((try? String(contentsOf: namesURL, encoding: .utf8)) ?? "")
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            return HarnessFixture(name: name, audioURL: audio, reference: reference, contextualStrings: names)
         }
     }
 }
 
 enum ListenHarness {
-    /// The variant label printed in the report (which code the run measured).
-    static let variant = "baseline"
+    /// The tunings the self-test compares, `.current` first (the baseline).
+    static let tunings: [ListenTuning] = [.current, .steady, .fast]
     /// The tap's requested buffer size in LiveCaptureEngine.
     static let tapBufferFrames: AVAudioFrameCount = 4096
 
@@ -178,40 +193,59 @@ enum ListenHarness {
 
     // MARK: - Runs
 
-    /// Runs every fixture through the live path and the file pass. Never throws: failures are
-    /// recorded per fixture so one bad fixture cannot hide the rest.
+    /// Runs every fixture through the live path and the file pass, once per tuning, rotating the
+    /// tuning order per fixture. Never throws: failures are recorded per fixture so one bad fixture
+    /// cannot hide the rest. `progress` gets one line per step (any thread).
     static func runAll(fixtures: [HarnessFixture], host: String, workDirectory: URL,
-                       prefetchTimeout: TimeInterval = 300) async -> HarnessReport {
+                       tunings: [ListenTuning] = ListenHarness.tunings,
+                       prefetchTimeout: TimeInterval = 300,
+                       progress: @escaping @Sendable (String) -> Void = { _ in }) async -> HarnessReport {
         var report = HarnessReport()
-        report.variant = variant
+        report.startedAt = ISO8601DateFormatter().string(from: Date())
+        report.variants = tunings.map { HarnessVariant(tuning: $0) }
         let (probe, route) = await probe(host: host, timeout: prefetchTimeout)
         report.probe = probe
+        progress("route: \(route.journalTag)")
         if case .audioOnly = route {
             report.probe.notes.append("no speech route on this host; nothing transcribed")
+            report.finishedAt = ISO8601DateFormatter().string(from: Date())
             return report
         }
         try? FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
-        for fixture in fixtures {
-            log("fixture \(fixture.name): live run")
+        for (fixtureIndex, fixture) in fixtures.enumerated() {
             let duration = (try? AVAudioFile(forReading: fixture.audioURL)).map {
                 Double($0.length) / $0.processingFormat.sampleRate
             } ?? 0
-            var result = HarnessFixtureResult(name: fixture.name, reference: fixture.reference, duration: duration)
-            let recording = workDirectory.appendingPathComponent(fixture.name + ".m4a")
-            result.live = await runLive(fixture: fixture, route: route, recordingURL: recording)
-            log("fixture \(fixture.name): file pass over the recording")
-            result.fileFromRecording = await runFilePass(audioURL: recording, route: route)
-            log("fixture \(fixture.name): file pass over the source")
-            result.fileFromSource = await runFilePass(audioURL: fixture.audioURL, route: route)
-            report.fixtures.append(result)
+            let rotation = fixtureIndex % max(1, tunings.count)
+            let order = Array(tunings.indices.dropFirst(rotation)) + Array(tunings.indices.prefix(rotation))
+            report.order[fixture.name] = order.map { tunings[$0].name }
+            for index in order {
+                let tuning = tunings[index]
+                let strings = tuning.useContext ? fixture.contextualStrings : []
+                var result = HarnessFixtureResult(name: fixture.name, reference: fixture.reference,
+                                                  duration: duration, contextualStrings: strings)
+                let recording = workDirectory.appendingPathComponent("\(fixture.name)-\(tuning.name).m4a")
+                progress("\(fixture.name) [\(tuning.name)]: live, \(Int(duration))s")
+                result.live = await runLive(fixture: fixture, route: route, tuning: tuning,
+                                            contextualStrings: strings, recordingURL: recording)
+                progress("\(fixture.name) [\(tuning.name)]: file pass")
+                result.fileFromRecording = await runFilePass(audioURL: recording, route: route,
+                                                             tuning: tuning, contextualStrings: strings)
+                result.fileFromSource = await runFilePass(audioURL: fixture.audioURL, route: route,
+                                                          tuning: tuning, contextualStrings: strings)
+                try? FileManager.default.removeItem(at: recording)
+                report.variants[index].fixtures.append(result)
+            }
         }
+        report.finishedAt = ISO8601DateFormatter().string(from: Date())
+        progress("done")
         return report
     }
 
     /// The live path as LiveCaptureEngine runs it: the same file settings, LiveTranscription and
     /// TapSink, fed tap-sized buffers at real-time pace.
-    static func runLive(fixture: HarnessFixture, route: TranscriptionRoute,
-                        recordingURL: URL) async -> HarnessLiveRun {
+    static func runLive(fixture: HarnessFixture, route: TranscriptionRoute, tuning: ListenTuning,
+                        contextualStrings: [String], recordingURL: URL) async -> HarnessLiveRun {
         var run = HarnessLiveRun()
         do {
             let source = try AVAudioFile(forReading: fixture.audioURL)
@@ -221,11 +255,13 @@ enum ListenHarness {
             let file = try AVAudioFile(forWriting: recordingURL,
                                        settings: CaptureAudioFile.settings(for: inputFormat),
                                        commonFormat: .pcmFormatFloat32, interleaved: false)
-            guard let module = SpeechModules.module(for: route, live: true) else {
+            guard let module = SpeechModules.module(for: route, live: true, tuning: tuning) else {
                 run.error = "no module for \(route.journalTag)"
                 return run
             }
-            let transcription = try await LiveTranscription.start(module: module, inputFormat: inputFormat)
+            let transcription = try await LiveTranscription.start(module: module, inputFormat: inputFormat,
+                                                                  tuning: tuning,
+                                                                  contextualStrings: contextualStrings)
             run.path = transcription.converter == nil ? "passthrough" : "converter"
             let sink = TapSink(file: file, converter: transcription.converter, builder: transcription.input)
 
@@ -257,7 +293,7 @@ enum ListenHarness {
             }
 
             run.stopWall = clock()
-            run.completed = await transcription.finish()
+            run.completed = await transcription.finish(flushing: sink)
             run.doneWall = clock()
             file.close()
             run.writeError = sink.writeError
@@ -270,11 +306,13 @@ enum ListenHarness {
     }
 
     /// The file pass the coordinator runs (SpeechFileTranscriber), timed.
-    static func runFilePass(audioURL: URL, route: TranscriptionRoute) async -> HarnessFilePass {
+    static func runFilePass(audioURL: URL, route: TranscriptionRoute, tuning: ListenTuning,
+                            contextualStrings: [String]) async -> HarnessFilePass {
         var pass = HarnessFilePass()
         let clock = wallClock()
         do {
-            for try await segment in SpeechFileTranscriber().transcribe(audioURL: audioURL, route: route) {
+            let transcriber = SpeechFileTranscriber(tuning: tuning, contextualStrings: contextualStrings)
+            for try await segment in transcriber.transcribe(audioURL: audioURL, route: route) {
                 pass.segments.append(HarnessEvent(kind: "final", text: segment.text,
                                                   start: segment.start, end: segment.end, wall: 0))
             }

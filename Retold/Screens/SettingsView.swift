@@ -55,6 +55,8 @@ struct SettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                // Debug and TestFlight builds only (listening hardening); renders nothing otherwise.
+                ListenSelfTestRow()
             }
             .paperPage()
             .navigationTitle(AppCopy.settingsTitle)

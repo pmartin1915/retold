@@ -171,9 +171,9 @@ def aggregate(rows, key):
     return agg
 
 
-def score_report(report):
+def score_fixtures(fixtures):
     rows = []
-    for fx in report.get("fixtures", []):
+    for fx in fixtures:
         rows.append({
             "name": fx["name"],
             "duration": fx["duration"],
@@ -182,10 +182,25 @@ def score_report(report):
             "fileSrc": score_file(fx, "fileFromSource"),
         })
     return {
-        "variant": report.get("variant"),
-        "probe": report.get("probe", {}),
         "fixtures": rows,
         "aggregate": {k: aggregate(rows, k) for k in ("live", "fileRec", "fileSrc")} if rows else {},
+    }
+
+
+def score_report(report):
+    """v2 report: one entry per tuning in report["variants"]; the first is the baseline."""
+    variants = []
+    for v in report.get("variants", []):
+        scored = score_fixtures(v.get("fixtures", []))
+        scored["variant"] = v["tuning"]["name"]
+        scored["tuning"] = v["tuning"]
+        scored["probe"] = report.get("probe", {})
+        variants.append(scored)
+    return {
+        "schema": report.get("schema"),
+        "probe": report.get("probe", {}),
+        "order": report.get("order", {}),
+        "variants": variants,
     }
 
 
@@ -208,6 +223,39 @@ def delta(now, base, kind):
     if kind == "int":
         return f" ({int(d):+d})"
     return f" ({d:+.2f})"
+
+
+def comparison(report_metrics):
+    """One row per tuning: the numbers that decide the defaults."""
+    lines = ["| tuning | settings | live WER | file pass WER | live longest missing | file longest missing | first final (s) | final lag p50 / worst p90 (s) |",
+             "|---|---|---|---|---|---|---|---|"]
+    for v in report_metrics["variants"]:
+        agg = v.get("aggregate") or {}
+        if not agg:
+            continue
+        t = v["tuning"]
+        on = [k for k in ("fastResults", "prepareModel", "flushConverter", "useContext") if t.get(k)]
+        lv, fr = agg["live"], agg["fileRec"]
+        lines.append(f"| {v['variant']} | {', '.join(on) or 'shipping today'} | {fmt(lv['wer'], 'pct')} | {fmt(fr['wer'], 'pct')} "
+                     f"| {fmt(lv['longestMissing'], 'int')} | {fmt(fr['longestMissing'], 'int')} "
+                     f"| {fmt(lv.get('firstFinal'))} | {fmt(lv.get('finalLatP50'))} / {fmt(lv.get('finalLatP90'))} |")
+    return "\n".join(lines) + "\n"
+
+
+def report_markdown(report_metrics, label, baseline_metrics=None):
+    """Whole report: probe, comparison table, then each tuning against the first (or a baseline file)."""
+    variants = report_metrics["variants"]
+    if not variants or not any(v["fixtures"] for v in variants):
+        return markdown({"probe": report_metrics["probe"], "variant": "-", "fixtures": [], "aggregate": {}}, label)
+    out = [f"# Listening harness: {label}", "", comparison(report_metrics), ""]
+    base = baseline_metrics or variants[0]
+    for v in variants:
+        out.append(markdown(v, label, None if v is base else base))
+    order = report_metrics.get("order") or {}
+    if order:
+        out.append("Tuning order per fixture (rotated so a warm model is not credited to one tuning): "
+                   + "; ".join(f"{k}: {' > '.join(o)}" for k, o in sorted(order.items())) + "\n")
+    return "\n".join(out)
 
 
 def markdown(metrics, label, baseline=None):
@@ -282,8 +330,8 @@ def main(argv=None):
     baseline = None
     if args.baseline:
         with open(args.baseline, encoding="utf-8") as f:
-            baseline = json.load(f)
-    md = markdown(metrics, args.label, baseline)
+            baseline = json.load(f)["variants"][0]
+    md = report_markdown(metrics, args.label, baseline)
     if args.metrics_out:
         with open(args.metrics_out, "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=1)

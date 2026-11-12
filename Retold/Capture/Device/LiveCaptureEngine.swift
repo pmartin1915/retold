@@ -117,10 +117,11 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
         active = capture
 
         // Live transcriber (none for .audioOnly): one SpeechAnalyzer fed from the tap.
-        if let module = SpeechModules.module(for: route, live: true) {
+        if let module = SpeechModules.module(for: route, live: true, tuning: .shipping) {
             do {
                 capture.transcription = try await LiveTranscription.start(module: module,
-                                                                          inputFormat: inputFormat)
+                                                                          inputFormat: inputFormat,
+                                                                          tuning: .shipping)
             } catch {
                 // Audio first (PLAN section 1): a transcriber that cannot start (assets not yet
                 // downloaded, an unsupported locale) must never cost the user the recording. Carry
@@ -233,7 +234,7 @@ final class LiveCaptureEngine: CaptureEngine, @unchecked Sendable {
 
         if let transcription = capture.transcription {
             // Finalizes through the end of input and drains the remaining finals before transcriberEnded.
-            let completed = await transcription.finish()
+            let completed = await transcription.finish(flushing: capture.sink)
             let writeFailed = capture.sink?.writeError ?? false
             eventsContinuation.yield(.recorder(
                 .transcriberEnded(captureID: captureID, run: 0, completed: completed && !writeFailed)))
