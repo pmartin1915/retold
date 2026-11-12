@@ -132,7 +132,48 @@ enum ListenHarness {
         let after = await SpeechRouteProbe().currentRoute()
         probe.routeAfter = after.journalTag
         log("probe: route after prefetch=\(after.journalTag)")
+        if case .audioOnly = after {
+            // A timed-out prefetch means the install hangs here; do not try it a second time.
+            probe.notes += await assetDiagnostics(tryInstall: !probe.prefetchTimedOut)
+        }
         return (probe, after)
+    }
+
+    /// Why no route: locales, asset status and the install request's error, which AssetPrefetch
+    /// swallows by design.
+    static func assetDiagnostics(tryInstall: Bool) async -> [String] {
+        var notes: [String] = []
+        let locale = Locale(identifier: "en-US")
+        let speechLocales = await SpeechTranscriber.supportedLocales.map { $0.identifier(.bcp47) }
+        let speechInstalled = await SpeechTranscriber.installedLocales.map { $0.identifier(.bcp47) }
+        let dictationLocales = await DictationTranscriber.supportedLocales.map { $0.identifier(.bcp47) }
+        notes.append("SpeechTranscriber supported locales: \(speechLocales.count) (en-US: \(speechLocales.contains("en-US"))), installed: \(speechInstalled)")
+        notes.append("DictationTranscriber supported locales: \(dictationLocales.count) (en-US: \(dictationLocales.contains("en-US")))")
+        let modules: [(String, any SpeechModule)] = [
+            ("speech", SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [],
+                                         attributeOptions: [.audioTimeRange])),
+            ("dictation", DictationTranscriber(locale: locale, contentHints: [], transcriptionOptions: [],
+                                               reportingOptions: [], attributeOptions: [.audioTimeRange])),
+        ]
+        for (name, module) in modules {
+            let status = await AssetInventory.status(forModules: [module])
+            var line = "\(name) en-US asset status: \(status)"
+            do {
+                if !tryInstall {
+                    line += "; install not retried"
+                } else if let request = try await AssetInventory.assetInstallationRequest(supporting: [module]) {
+                    try await request.downloadAndInstall()
+                    line += "; install request finished, status now \(await AssetInventory.status(forModules: [module]))"
+                } else {
+                    line += "; no install request needed"
+                }
+            } catch {
+                line += "; install error: \(error)"
+            }
+            notes.append(line)
+        }
+        notes.forEach { log("probe: \($0)") }
+        return notes
     }
 
     // MARK: - Runs
