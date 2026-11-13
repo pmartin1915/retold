@@ -45,8 +45,9 @@ enum AppCopy {
     static let removeLabel = "Remove"
     /// Settings sheet dismiss button.
     static let doneButton = "Done"
-    /// Confirm flow: why File it is unavailable.
-    static let titleNeededHint = "Add a title to file this memory."
+    /// Confirm flow: shown until there is a title. Only the title is required (Perry 2026-11-12:
+    /// the sheet read as if every section had to be answered first).
+    static let titleNeededHint = "Only a title is needed to file. Everything else is optional."
     /// R6b: recorder state label while interrupted.
     static let pausedLabel = "Paused"
     /// R6b: the store failed to open at launch.

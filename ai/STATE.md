@@ -8,7 +8,7 @@
 1.1 work on main: comeup run 2 (#26-#31, 2026-11-09) and run 3 (#33, #35, 2026-11-11: recorder capsule + record ring, cheap live text, serif for the user's words, story/confirm/Home redesign, dark-mode CI capture). **1.1.0 build 16.1 (deploy run 16, main `bc11052`) uploaded to TestFlight 2026-11-11**; no submission. Scorecards: `ai/comeup/2026-11-09/`, `ai/comeup/2026-11-10/`.
 
 ## Waiting on Perry
-- Feel build 17.1 on the phone once TestFlight finishes processing (16.1 plus BoardBound's paper look, PR #36): record two or three stories and say what still feels off (live-text smoothness, the record ring, the serif, the cream canvas). Device-only items are listed in `ai/comeup/2026-11-10/scorecard.md`. (Claude-set 2026-11-11, re-check 2026-11-14)
+- On TestFlight build 1.1.0 (18.1) (from `listen/hardening`, PR #37; deploy run 43329900713): open Settings, run **Listening self-test** (about 15 min, phone on a table, quiet room), tap Share and send the results to Claude. The numbers pick which listening fix ships before the 1.1.0 App Store submit. While on that build, record two or three real stories too (the paper look from 17.1 is in it). (Claude-set 2026-11-12, re-check 2026-11-15)
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
