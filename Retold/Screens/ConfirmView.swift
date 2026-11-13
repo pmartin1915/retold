@@ -16,7 +16,7 @@ struct ConfirmView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = true
+    @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = SettingsKeys.suggestionsOnDefault
     @Query(sort: \Period.sortOrder) private var periods: [Period]
     @Query(sort: \Person.name) private var people: [Person]
     @Query(sort: \Place.name) private var places: [Place]
@@ -27,6 +27,9 @@ struct ConfirmView: View {
     @State private var findingSuggestions = false
     @State private var whenMode = WhenMode.year
     @State private var selectedWhenValue: Int?
+    /// Perry 2026-11-12: after Set, the wheel folds into one checked row so a stray scroll cannot
+    /// move the answer. Change opens the wheel again.
+    @State private var whenLocked = false
     @State private var newPersonName = ""
     @State private var newPlaceName = ""
     /// comeup run 2: a failed File it used to do nothing visible.
@@ -191,50 +194,33 @@ struct ConfirmView: View {
 
             EyebrowSection(AppCopy.whenHeader) {
                 Text(current.whenQuestion.text)
-                // Perry 2026-11-12, an "Age" pick did not stick. The mode, the wheel's value and the
-                // draft now change together in the bindings' setters (Sol review on PR #38: the old
-                // onChange pair cleared the value one update after the wheel was rebuilt).
-                Picker(AppCopy.whenHeader, selection: Binding(
-                    get: { whenMode },
-                    set: { mode in
-                        guard mode != whenMode else { return }
-                        whenMode = mode
-                        selectedWhenValue = nil
-                        mutateDraft { $0.setWhen(.notSure) }
+                if whenLocked, let value = selectedWhenValue {
+                    HStack {
+                        Label(whenText(value), systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.tint)
+                            .accessibilityIdentifier("whenLocked")
+                        Spacer()
+                        Button(AppCopy.changeButton) { setWhenLocked(false) }
+                            .buttonStyle(.borderless)
                     }
-                )) {
-                    Text(AppCopy.whenYear).tag(WhenMode.year)
-                    Text(AppCopy.whenAge).tag(WhenMode.age)
-                }
-                .pickerStyle(.segmented)
-                Picker(AppCopy.whenHeader, selection: Binding(
-                    get: { selectedWhenValue },
-                    set: { value in
-                        selectedWhenValue = value
-                        mutateDraft {
-                            guard let value else { return $0.setWhen(.notSure) }
-                            $0.setWhen(whenMode == .year ? .year(value) : .age(value))
+                } else {
+                    whenPickers
+                    HStack {
+                        Button(AppCopy.notSure) {
+                            selectedWhenValue = nil
+                            mutateDraft { $0.setWhen(.notSure) }
                         }
+                        .buttonStyle(.borderless)
+                        Spacer()
+                        Button {
+                            setWhenLocked(true)
+                            choiceTick += 1
+                        } label: {
+                            Label(AppCopy.whenSetButton, systemImage: "checkmark")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(selectedWhenValue == nil)
                     }
-                )) {
-                    Text(AppCopy.notSure).tag(Int?.none)
-                    if whenMode == .year {
-                        ForEach(Array(stride(from: Calendar.current.component(.year, from: Date()), through: 1900, by: -1)), id: \.self) { year in
-                            Text(String(year)).tag(Int?.some(year))
-                        }
-                    } else {
-                        ForEach(0...100, id: \.self) { age in
-                            Text(String(age)).tag(Int?.some(age))
-                        }
-                    }
-                }
-                .pickerStyle(.wheel)
-                // A wheel whose rows are swapped in place (years <-> ages) can keep stale
-                // UIPickerView state, so it is rebuilt on each mode change.
-                .id(whenMode)
-                Button(AppCopy.notSure) {
-                    selectedWhenValue = nil
-                    mutateDraft { $0.setWhen(.notSure) }
                 }
             }
 
@@ -535,6 +521,60 @@ struct ConfirmView: View {
 
     /// Animated by default so rows that appear or vanish (a picker, a "Same as" choice) do not
     /// jump; typing passes `animated: false`. Reduce Motion turns the animation off.
+    /// The Year/Age switch and the wheel, shown until the answer is set.
+    @ViewBuilder
+    private var whenPickers: some View {
+                // Perry 2026-11-12, an "Age" pick did not stick. The mode, the wheel's value and the
+                // draft now change together in the bindings' setters (Sol review on PR #38: the old
+                // onChange pair cleared the value one update after the wheel was rebuilt).
+                Picker(AppCopy.whenHeader, selection: Binding(
+                    get: { whenMode },
+                    set: { mode in
+                        guard mode != whenMode else { return }
+                        whenMode = mode
+                        selectedWhenValue = nil
+                        mutateDraft { $0.setWhen(.notSure) }
+                    }
+                )) {
+                    Text(AppCopy.whenYear).tag(WhenMode.year)
+                    Text(AppCopy.whenAge).tag(WhenMode.age)
+                }
+                .pickerStyle(.segmented)
+                Picker(AppCopy.whenHeader, selection: Binding(
+                    get: { selectedWhenValue },
+                    set: { value in
+                        selectedWhenValue = value
+                        mutateDraft {
+                            guard let value else { return $0.setWhen(.notSure) }
+                            $0.setWhen(whenMode == .year ? .year(value) : .age(value))
+                        }
+                    }
+                )) {
+                    Text(AppCopy.notSure).tag(Int?.none)
+                    if whenMode == .year {
+                        ForEach(Array(stride(from: Calendar.current.component(.year, from: Date()), through: 1900, by: -1)), id: \.self) { year in
+                            Text(String(year)).tag(Int?.some(year))
+                        }
+                    } else {
+                        ForEach(0...100, id: \.self) { age in
+                            Text(String(age)).tag(Int?.some(age))
+                        }
+                    }
+                }
+                .pickerStyle(.wheel)
+                // A wheel whose rows are swapped in place (years <-> ages) can keep stale
+                // UIPickerView state, so it is rebuilt on each mode change.
+                .id(whenMode)
+    }
+
+    private func whenText(_ value: Int) -> String {
+        whenMode == .year ? String(value) : "\(AppCopy.whenAge) \(value)"
+    }
+
+    private func setWhenLocked(_ locked: Bool) {
+        withAnimation(reduceMotion ? nil : DesignTokens.Motion.change) { whenLocked = locked }
+    }
+
     private func mutateDraft(animated: Bool = true, _ mutation: (inout ConfirmDraft) -> Void) {
         guard var value = draft else { return }
         mutation(&value)
