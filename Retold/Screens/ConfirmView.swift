@@ -191,16 +191,32 @@ struct ConfirmView: View {
 
             EyebrowSection(AppCopy.whenHeader) {
                 Text(current.whenQuestion.text)
-                Picker(AppCopy.whenHeader, selection: $whenMode) {
+                // Perry 2026-11-12, an "Age" pick did not stick. The mode, the wheel's value and the
+                // draft now change together in the bindings' setters (Sol review on PR #38: the old
+                // onChange pair cleared the value one update after the wheel was rebuilt).
+                Picker(AppCopy.whenHeader, selection: Binding(
+                    get: { whenMode },
+                    set: { mode in
+                        guard mode != whenMode else { return }
+                        whenMode = mode
+                        selectedWhenValue = nil
+                        mutateDraft { $0.setWhen(.notSure) }
+                    }
+                )) {
                     Text(AppCopy.whenYear).tag(WhenMode.year)
                     Text(AppCopy.whenAge).tag(WhenMode.age)
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: whenMode) { _, _ in
-                    selectedWhenValue = nil
-                    mutateDraft { $0.setWhen(.notSure) }
-                }
-                Picker(AppCopy.whenHeader, selection: $selectedWhenValue) {
+                Picker(AppCopy.whenHeader, selection: Binding(
+                    get: { selectedWhenValue },
+                    set: { value in
+                        selectedWhenValue = value
+                        mutateDraft {
+                            guard let value else { return $0.setWhen(.notSure) }
+                            $0.setWhen(whenMode == .year ? .year(value) : .age(value))
+                        }
+                    }
+                )) {
                     Text(AppCopy.notSure).tag(Int?.none)
                     if whenMode == .year {
                         ForEach(Array(stride(from: Calendar.current.component(.year, from: Date()), through: 1900, by: -1)), id: \.self) { year in
@@ -213,18 +229,9 @@ struct ConfirmView: View {
                     }
                 }
                 .pickerStyle(.wheel)
-                // Perry 2026-11-12, "Age" pick did not stick: a wheel whose rows are swapped in place
-                // (years <-> ages) keeps stale UIPickerView state, so rebuild it on each mode change.
+                // A wheel whose rows are swapped in place (years <-> ages) can keep stale
+                // UIPickerView state, so it is rebuilt on each mode change.
                 .id(whenMode)
-                .onChange(of: selectedWhenValue) { _, value in
-                    guard let value else {
-                        mutateDraft { $0.setWhen(.notSure) }
-                        return
-                    }
-                    mutateDraft {
-                        $0.setWhen(whenMode == .year ? .year(value) : .age(value))
-                    }
-                }
                 Button(AppCopy.notSure) {
                     selectedWhenValue = nil
                     mutateDraft { $0.setWhen(.notSure) }
