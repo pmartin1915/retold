@@ -50,6 +50,26 @@ class ScoreTests(unittest.TestCase):
         self.assertIn("| fast | fastResults |", md)
         self.assertIn("f: current > fast", md)
 
+    def test_engines(self):
+        tuning = {"name": "current", "fastResults": False, "prepareModel": False, "flushConverter": False, "useContext": False}
+        fixture = {"name": "f", "reference": "one two three four", "duration": 30.0,
+                   "live": {"error": "x"}, "fileFromRecording": {"error": "x"},
+                   "fileFromSource": {"segments": [{"kind": "final", "text": "one two", "start": 0, "end": 1, "wall": 0}], "elapsed": 3.0},
+                   "peakExtraMB": 40.0}
+        rep = {"probe": {}, "variants": [{"tuning": tuning, "fixtures": [fixture]}],
+               "engines": [{"name": "whisper-base.en", "model": "m", "downloadSeconds": 20, "loadSeconds": 5,
+                            "loadPeakExtraMB": 300, "fixtures": [
+                                {"name": "f", "reference": "one two three four", "duration": 30.0, "peakExtraMB": 250,
+                                 "filePass": {"segments": [{"kind": "final", "text": "One two three four.", "start": 0, "end": 2, "wall": 0}], "elapsed": 6.0}}]},
+                           {"name": "whisper-turbo", "model": "t", "error": "Not enough free space", "fixtures": []}]}
+        m = score.score_report(rep)
+        self.assertEqual(m["engines"][0]["aggregate"]["wer"], 0.0)
+        self.assertAlmostEqual(m["engines"][0]["aggregate"]["secPerAudioMin"], 12.0)
+        md = score.report_markdown(m, "t")
+        self.assertIn("| whisper-base.en (`m`) | 0.0%", md)
+        self.assertIn("| Apple SpeechTranscriber (current) | 50.0%", md)
+        self.assertIn("error: Not enough free space", md)
+
     def test_empty_report(self):
         md = score.report_markdown(score.score_report({"probe": {"host": "x"}, "variants": []}), "empty")
         self.assertIn("No fixtures were transcribed", md)

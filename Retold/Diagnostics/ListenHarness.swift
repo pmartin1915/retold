@@ -46,6 +46,8 @@ struct HarnessFixtureResult: Codable, Sendable {
     let reference: String
     let duration: Double
     var contextualStrings: [String] = []
+    /// Extra memory the run used at its peak, MB (iOS: drop in os_proc_available_memory; else 0).
+    var peakExtraMB = 0.0
     var live: HarnessLiveRun?
     var fileFromRecording: HarnessFilePass?
     var fileFromSource: HarnessFilePass?
@@ -69,8 +71,39 @@ struct HarnessVariant: Codable, Sendable {
     var fixtures: [HarnessFixtureResult] = []
 }
 
+/// A file-only engine compared against Apple's (Whisper): download/load time and one file pass per
+/// fixture over the same source recording.
+protocol HarnessFileEngine: Sendable {
+    var name: String { get }
+    var model: String { get }
+    /// Downloads (if needed) and loads the model; returns seconds spent on each.
+    func prepare(progress: @escaping @Sendable (String) -> Void) async throws -> (download: Double, load: Double)
+    func transcribe(audioURL: URL) async throws -> [HarnessEvent]
+    func unload() async
+}
+
+struct HarnessEngineFixture: Codable, Sendable {
+    let name: String
+    let reference: String
+    let duration: Double
+    var peakExtraMB = 0.0
+    var filePass = HarnessFilePass()
+}
+
+struct HarnessEngineRun: Codable, Sendable {
+    let name: String
+    let model: String
+    var downloadSeconds = 0.0
+    var loadSeconds = 0.0
+    var loadPeakExtraMB = 0.0
+    var error: String?
+    var fixtures: [HarnessEngineFixture] = []
+}
+
 struct HarnessReport: Codable, Sendable {
     var schema = "retold-listen-harness/v2"
+    /// Extra engines (Whisper), each over the same fixtures; empty when none ran.
+    var engines: [HarnessEngineRun] = []
     var probe = HarnessProbe()
     var startedAt = ""
     var finishedAt = ""
@@ -198,6 +231,7 @@ enum ListenHarness {
     /// cannot hide the rest. `progress` gets one line per step (any thread).
     static func runAll(fixtures: [HarnessFixture], host: String, workDirectory: URL,
                        tunings: [ListenTuning] = ListenHarness.tunings,
+                       engines: [any HarnessFileEngine] = [],
                        prefetchTimeout: TimeInterval = 300,
                        progress: @escaping @Sendable (String) -> Void = { _ in }) async -> HarnessReport {
         var report = HarnessReport()
@@ -208,6 +242,7 @@ enum ListenHarness {
         progress("route: \(route.journalTag)")
         if case .audioOnly = route {
             report.probe.notes.append("no speech route on this host; nothing transcribed")
+            report.engines = await runEngines(engines, fixtures: fixtures, progress: progress)
             report.finishedAt = ISO8601DateFormatter().string(from: Date())
             return report
         }
@@ -225,6 +260,7 @@ enum ListenHarness {
                 var result = HarnessFixtureResult(name: fixture.name, reference: fixture.reference,
                                                   duration: duration, contextualStrings: strings)
                 let recording = workDirectory.appendingPathComponent("\(fixture.name)-\(tuning.name).m4a")
+                let memory = MemorySampler.start()
                 progress("\(fixture.name) [\(tuning.name)]: live, \(Int(duration))s")
                 result.live = await runLive(fixture: fixture, route: route, tuning: tuning,
                                             contextualStrings: strings, recordingURL: recording)
@@ -233,13 +269,59 @@ enum ListenHarness {
                                                              tuning: tuning, contextualStrings: strings)
                 result.fileFromSource = await runFilePass(audioURL: fixture.audioURL, route: route,
                                                           tuning: tuning, contextualStrings: strings)
+                result.peakExtraMB = await memory.stop()
                 try? FileManager.default.removeItem(at: recording)
                 report.variants[index].fixtures.append(result)
             }
         }
+        report.engines = await runEngines(engines, fixtures: fixtures, progress: progress)
         report.finishedAt = ISO8601DateFormatter().string(from: Date())
         progress("done")
         return report
+    }
+
+    /// Each extra engine in turn: prepare (download + load), one file pass per fixture over the
+    /// source recording, unload. A failure (no network, no space) is recorded and the next engine runs.
+    static func runEngines(_ engines: [any HarnessFileEngine], fixtures: [HarnessFixture],
+                           progress: @escaping @Sendable (String) -> Void) async -> [HarnessEngineRun] {
+        var runs: [HarnessEngineRun] = []
+        for engine in engines {
+            var run = HarnessEngineRun(name: engine.name, model: engine.model)
+            progress("\(engine.name): preparing")
+            let loadMemory = MemorySampler.start()
+            do {
+                let times = try await engine.prepare(progress: progress)
+                run.downloadSeconds = times.download
+                run.loadSeconds = times.load
+            } catch {
+                run.error = error.localizedDescription
+                run.loadPeakExtraMB = await loadMemory.stop()
+                progress("\(engine.name): \(error.localizedDescription)")
+                runs.append(run)
+                continue
+            }
+            run.loadPeakExtraMB = await loadMemory.stop()
+            for fixture in fixtures {
+                let duration = (try? AVAudioFile(forReading: fixture.audioURL)).map {
+                    Double($0.length) / $0.processingFormat.sampleRate
+                } ?? 0
+                var item = HarnessEngineFixture(name: fixture.name, reference: fixture.reference, duration: duration)
+                progress("\(fixture.name) [\(engine.name)]: file pass")
+                let memory = MemorySampler.start()
+                let clock = wallClock()
+                do {
+                    item.filePass.segments = try await engine.transcribe(audioURL: fixture.audioURL)
+                } catch {
+                    item.filePass.error = "\(error)"
+                }
+                item.filePass.elapsed = clock()
+                item.peakExtraMB = await memory.stop()
+                run.fixtures.append(item)
+            }
+            await engine.unload()
+            runs.append(run)
+        }
+        return runs
     }
 
     /// The live path as LiveCaptureEngine runs it: the same file settings, LiveTranscription and
@@ -331,5 +413,41 @@ enum ListenHarness {
 
     static func log(_ message: String) {
         print("LISTEN_HARNESS: \(message)")
+    }
+}
+
+/// Peak extra memory over a stretch of work. On iOS it samples os_proc_available_memory every
+/// 200 ms and reports the largest drop from the start; elsewhere it reports 0.
+final class MemorySampler: @unchecked Sendable {
+    private let task: Task<Double, Never>
+    private let stopFlag: OSAllocatedUnfairLock<Bool>
+
+    private init(task: Task<Double, Never>, stopFlag: OSAllocatedUnfairLock<Bool>) {
+        self.task = task
+        self.stopFlag = stopFlag
+    }
+
+    static func start() -> MemorySampler {
+        let stopFlag = OSAllocatedUnfairLock(initialState: false)
+        let task = Task.detached { () -> Double in
+            #if os(iOS)
+            let start = Double(os_proc_available_memory())
+            var lowest = start
+            while !stopFlag.withLock({ $0 }) {
+                lowest = min(lowest, Double(os_proc_available_memory()))
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+            lowest = min(lowest, Double(os_proc_available_memory()))
+            return max(0, start - lowest) / 1_048_576
+            #else
+            return 0
+            #endif
+        }
+        return MemorySampler(task: task, stopFlag: stopFlag)
+    }
+
+    func stop() async -> Double {
+        stopFlag.withLock { $0 = true }
+        return await task.value
     }
 }

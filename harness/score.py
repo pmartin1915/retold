@@ -201,7 +201,81 @@ def score_report(report):
         "probe": report.get("probe", {}),
         "order": report.get("order", {}),
         "variants": variants,
+        "engines": [score_engine(e) for e in report.get("engines", [])],
     }
+
+
+def score_engine(run):
+    """An extra file-only engine (Whisper): WER etc. per fixture over the source recording."""
+    rows = []
+    for fx in run.get("fixtures", []):
+        fp = fx.get("filePass") or {}
+        if fp.get("error"):
+            rows.append({"name": fx["name"], "error": fp["error"]})
+            continue
+        r = word_scores(fx["reference"], ordered_text(fp.get("segments", [])))
+        r.update({"name": fx["name"], "elapsed": fp.get("elapsed", 0.0),
+                  "secPerAudioMin": fp.get("elapsed", 0.0) / (fx["duration"] / 60.0) if fx.get("duration") else None,
+                  "peakExtraMB": fx.get("peakExtraMB", 0.0),
+                  "transcript": ordered_text(fp.get("segments", []))})
+        rows.append(r)
+    ok = [r for r in rows if "error" not in r]
+    words = sum(r["refWords"] for r in ok)
+    spm = [r["secPerAudioMin"] for r in ok if r["secPerAudioMin"] is not None]
+    return {
+        "name": run["name"], "model": run.get("model"), "error": run.get("error"),
+        "downloadSeconds": run.get("downloadSeconds"), "loadSeconds": run.get("loadSeconds"),
+        "loadPeakExtraMB": run.get("loadPeakExtraMB"),
+        "fixtures": rows,
+        "aggregate": {
+            "fixtures": len(ok),
+            "wer": sum(r["sub"] + r["del"] + r["ins"] for r in ok) / words if words else None,
+            "deleted": sum(r["del"] for r in ok),
+            "longestMissing": max((r["longestMissing"] for r in ok), default=None),
+            "secPerAudioMin": statistics.median(spm) if spm else None,
+            "peakExtraMB": max((r["peakExtraMB"] for r in ok), default=None),
+            "failed": len(rows) - len(ok),
+        },
+    }
+
+
+def engines_markdown(report_metrics):
+    """All engines on the same fixtures: Apple's file pass per tuning next to each extra engine."""
+    engines = report_metrics.get("engines") or []
+    if not engines:
+        return ""
+    lines = ["### Engines, file pass over the same recordings", "",
+             "| engine | WER | words deleted | longest missing | s per audio min | peak extra MB | download / load (s) |",
+             "|---|---|---|---|---|---|---|"]
+    for v in report_metrics["variants"]:
+        agg = (v.get("aggregate") or {}).get("fileSrc")
+        if not agg:
+            continue
+        spm = [r["fileSrc"].get("secPerAudioMin") for r in v["fixtures"] if "error" not in r["fileSrc"]]
+        spm = [x for x in spm if x is not None]
+        mem = [r.get("peakExtraMB") for r in v["fixtures"] if r.get("peakExtraMB") is not None]
+        lines.append(f"| Apple SpeechTranscriber ({v['variant']}) | {fmt(agg['wer'], 'pct')} | {fmt(agg['deleted'], 'int')} "
+                     f"| {fmt(agg['longestMissing'], 'int')} | {fmt(statistics.median(spm) if spm else None)} "
+                     f"| {fmt(max(mem) if mem else None)} (live + file) | – |")
+    for e in engines:
+        a = e["aggregate"]
+        if e.get("error"):
+            lines.append(f"| {e['name']} | error: {e['error'][:80]} | | | | {fmt(e.get('loadPeakExtraMB'))} | {fmt(e.get('downloadSeconds'))} / {fmt(e.get('loadSeconds'))} |")
+            continue
+        lines.append(f"| {e['name']} (`{e['model']}`) | {fmt(a['wer'], 'pct')} | {fmt(a['deleted'], 'int')} "
+                     f"| {fmt(a['longestMissing'], 'int')} | {fmt(a['secPerAudioMin'])} "
+                     f"| {fmt(max(a['peakExtraMB'] or 0, e.get('loadPeakExtraMB') or 0))} "
+                     f"| {fmt(e.get('downloadSeconds'))} / {fmt(e.get('loadSeconds'))} |")
+    lines += ["", "Whisper has no live path here: it is compared as the saved-audio pass only (live latency is Apple's).", ""]
+    lines += ["<details><summary>Engine transcripts</summary>", ""]
+    for e in engines:
+        for r in e["fixtures"]:
+            if "error" in r:
+                lines.append(f"- **{r['name']} / {e['name']}**: error {r['error'][:120]}")
+            else:
+                lines.append(f"- **{r['name']} / {e['name']}**: missing \"{r['longestMissingText']}\"; heard: {r['transcript']}")
+    lines += ["", "</details>", ""]
+    return "\n".join(lines)
 
 
 def fmt(v, kind="s"):
@@ -246,8 +320,9 @@ def report_markdown(report_metrics, label, baseline_metrics=None):
     """Whole report: probe, comparison table, then each tuning against the first (or a baseline file)."""
     variants = report_metrics["variants"]
     if not variants or not any(v["fixtures"] for v in variants):
-        return markdown({"probe": report_metrics["probe"], "variant": "-", "fixtures": [], "aggregate": {}}, label)
-    out = [f"# Listening harness: {label}", "", comparison(report_metrics), ""]
+        return (markdown({"probe": report_metrics["probe"], "variant": "-", "fixtures": [], "aggregate": {}}, label)
+                + engines_markdown(report_metrics))
+    out = [f"# Listening harness: {label}", "", comparison(report_metrics), "", engines_markdown(report_metrics)]
     base = baseline_metrics or variants[0]
     for v in variants:
         out.append(markdown(v, label, None if v is base else base))

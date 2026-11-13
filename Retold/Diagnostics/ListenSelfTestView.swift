@@ -54,12 +54,20 @@ struct ListenSelfTestView: View {
     @State private var lines: [String] = []
     @State private var reportURL: URL?
     @State private var statsCount = 0
+    @State private var includeWhisper = true
+    @State private var whisperOnDiskMB = 0
+    @State private var freeMB: Int?
 
     var body: some View {
         Form {
             Section {
                 Text("Runs each test recording through the live transcriber and the saved-audio pass, with each setting being compared. It takes about 15 minutes. Keep the app open; the screen stays on.")
                     .font(.footnote)
+                Toggle("Also try Whisper", isOn: $includeWhisper)
+                    .disabled(running)
+                Text(whisperNote)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Button(running ? "Running…" : "Run self-test") {
                     start()
                 }
@@ -68,6 +76,15 @@ struct ListenSelfTestView: View {
                     ShareLink(item: reportURL) {
                         Text("Share report")
                     }
+                }
+            }
+            if whisperOnDiskMB > 0 {
+                Section {
+                    Button("Delete Whisper models (\(whisperOnDiskMB) MB)", role: .destructive) {
+                        WhisperModelStore.deleteAll()
+                        refreshStorage()
+                    }
+                    .disabled(running)
                 }
             }
             Section {
@@ -94,10 +111,24 @@ struct ListenSelfTestView: View {
         .navigationTitle("Listening self-test")
         .onAppear {
             statsCount = CaptureStatsLog.load().count
+            refreshStorage()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }
+    }
+
+    private var whisperNote: String {
+        let free = freeMB.map { ", \($0) MB free" } ?? ""
+        if whisperOnDiskMB > 0 {
+            return "Whisper models already on this phone (\(whisperOnDiskMB) MB\(free)). Adds about 10 minutes."
+        }
+        return "Downloads about \(WhisperModelSpec.totalMB) MB of Whisper models once, over the network (models only: no audio or words leave the phone)\(free). Adds about 10 minutes."
+    }
+
+    private func refreshStorage() {
+        whisperOnDiskMB = WhisperModelStore.downloadedMB
+        freeMB = WhisperModelStore.freeMB
     }
 
     private func append(_ line: String) {
@@ -123,9 +154,11 @@ struct ListenSelfTestView: View {
         UIApplication.shared.isIdleTimerDisabled = true
         let work = FileManager.default.temporaryDirectory
             .appendingPathComponent("listen-self-test", isDirectory: true)
+        let engines: [any HarnessFileEngine] = includeWhisper
+            ? WhisperModelSpec.candidates.map { WhisperEngine(spec: $0) } : []
         Task { @MainActor in
             let report = await ListenHarness.runAll(
-                fixtures: fixtures, host: "iPhone", workDirectory: work,
+                fixtures: fixtures, host: "iPhone", workDirectory: work, engines: engines,
                 progress: { line in
                     Task { @MainActor in append(line) }
                 })
@@ -141,6 +174,7 @@ struct ListenSelfTestView: View {
                 append("Could not write the report: \(error.localizedDescription)")
             }
             try? FileManager.default.removeItem(at: work)
+            refreshStorage()
             UIApplication.shared.isIdleTimerDisabled = false
             running = false
         }
