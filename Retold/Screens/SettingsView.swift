@@ -3,12 +3,16 @@ import SwiftUI
 
 enum SettingsKeys {
     static let suggestionsOn = "retold.suggestionsOn"
+    /// Perry 2026-11-12: the on-device model's period/people/place picks were poor, so 1.1.0 ships
+    /// with suggestions off unless the user turns them on in Settings. Applies only where the user
+    /// has never touched the toggle (AppStorage writes nothing until it changes).
+    static let suggestionsOnDefault = false
 }
 
 struct SettingsView: View {
     let files: CaptureFiles
 
-    @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = true
+    @AppStorage(SettingsKeys.suggestionsOn) private var suggestionsOn = SettingsKeys.suggestionsOnDefault
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 

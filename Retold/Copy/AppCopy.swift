@@ -114,6 +114,10 @@ enum AppCopy {
     static let whenAge = "Age"
     /// R7a: action for leaving the when answer open.
     static let notSure = "Not sure"
+    /// When: locks the wheel's answer into one checked row (Perry 2026-11-12).
+    static let whenSetButton = "Set"
+    /// When: reopens the wheel after Set.
+    static let changeButton = "Change"
     /// R7a: confirm-flow people section.
     static let peopleHeader = "People"
     /// R7a: confirm-flow place section.
@@ -303,6 +307,8 @@ enum AppCopy {
         whenYear,
         whenAge,
         notSure,
+        whenSetButton,
+        changeButton,
         peopleHeader,
         placesHeader,
         addPerson,
