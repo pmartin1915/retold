@@ -180,6 +180,13 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(wheel.waitForExistence(timeout: 5), "No When wheel")
         wheel.adjust(toPickerWheelValue: "12")
         settle(0.5)
+        // Set folds the wheel into one checked row, so a stray scroll cannot change the answer.
+        app.buttons["Set"].firstMatch.tap()
+        let locked = app.descendants(matching: .any)["whenLocked"].firstMatch
+        XCTAssertTrue(locked.waitForExistence(timeout: 3), "Set did not lock the answer")
+        XCTAssertTrue(locked.label.contains("Age 12"), "Locked row reads \(locked.label)")
+        XCTAssertFalse(app.pickerWheels.firstMatch.exists, "Wheel still shown after Set")
+        attach(app, named: "check-when-locked")
         app.buttons["File it"].firstMatch.tap()
         let filedAge = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", "Age 12")).firstMatch
