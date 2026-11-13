@@ -181,7 +181,8 @@ final class FlowTests: XCTestCase {
         wheel.adjust(toPickerWheelValue: "12")
         settle(0.5)
         app.buttons["File it"].firstMatch.tap()
-        let filedAge = app.staticTexts["Age 12"].firstMatch
+        let filedAge = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Age 12")).firstMatch
         XCTAssertTrue(filedAge.waitForExistence(timeout: 8), "Home row does not show the filed age")
         attach(app, named: "check-age-filed")
     }
