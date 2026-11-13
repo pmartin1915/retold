@@ -20,6 +20,10 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     ALWAYS_SEARCH_USER_PATHS: NO
     DEVELOPMENT_TEAM: NN8F5WX25R
+    # Simulator builds are arm64 only (Apple-silicon runners). With a Swift package (WhisperKit) the
+    # app otherwise also built x86_64 while the package built arm64 only, and the x86_64 compile
+    # failed with "Unable to resolve module dependency: 'WhisperKit'" (run 43362025041).
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
   configs:
     Debug:
       ENABLE_TESTABILITY: YES
