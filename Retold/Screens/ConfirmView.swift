@@ -33,6 +33,10 @@ struct ConfirmView: View {
     @State private var fileFailed = false
     /// comeup run 2, V1: bumped by Use this / Not this / choice taps for a selection haptic.
     @State private var choiceTick = 0
+    /// Perry 2026-11-12: a greyed File it left him unsure what was required. File it stays tappable;
+    /// without a title it moves the cursor to the title field instead of filing.
+    @FocusState private var titleFocused: Bool
+    @State private var titleNudge = 0
     /// comeup run 3 (F4, Perry's pick): people, places and questions for later sit behind a fold,
     /// so the File it bar is near the top. Opened by the user; suggestions inside are counted.
     @State private var showMoreDetails = false
@@ -64,13 +68,18 @@ struct ConfirmView: View {
                                 .opacity(current.canFile ? 0 : 1)
                                 .accessibilityHidden(current.canFile)
                             Button {
-                                file()
+                                if current.canFile {
+                                    file()
+                                } else {
+                                    titleFocused = true
+                                    titleNudge += 1
+                                }
                             } label: {
                                 Text(AppCopy.fileButton)
                                     .frame(maxWidth: .infinity)
                             }
                             .primaryAction()
-                            .disabled(!current.canFile)
+                            .accessibilityHint(current.canFile ? "" : AppCopy.titleNeededHint)
                         }
                 } else {
                     // comeup run 3 (C6, F3): placeholder rows in the form's shape while the draft
@@ -97,6 +106,7 @@ struct ConfirmView: View {
         }
         .sensoryFeedback(.error, trigger: fileFailed) { _, failed in failed }
         .sensoryFeedback(.selection, trigger: choiceTick)
+        .sensoryFeedback(.warning, trigger: titleNudge)
         .task {
             await load()
         }
@@ -146,6 +156,7 @@ struct ConfirmView: View {
                     get: { draft?.typedTitle ?? "" },
                     set: { value in mutateDraft(animated: false) { $0.typedTitle = value } }
                 ))
+                .focused($titleFocused)
             }
 
             EyebrowSection(AppCopy.periodHeader) {
@@ -180,16 +191,32 @@ struct ConfirmView: View {
 
             EyebrowSection(AppCopy.whenHeader) {
                 Text(current.whenQuestion.text)
-                Picker(AppCopy.whenHeader, selection: $whenMode) {
+                // Perry 2026-11-12, an "Age" pick did not stick. The mode, the wheel's value and the
+                // draft now change together in the bindings' setters (Sol review on PR #38: the old
+                // onChange pair cleared the value one update after the wheel was rebuilt).
+                Picker(AppCopy.whenHeader, selection: Binding(
+                    get: { whenMode },
+                    set: { mode in
+                        guard mode != whenMode else { return }
+                        whenMode = mode
+                        selectedWhenValue = nil
+                        mutateDraft { $0.setWhen(.notSure) }
+                    }
+                )) {
                     Text(AppCopy.whenYear).tag(WhenMode.year)
                     Text(AppCopy.whenAge).tag(WhenMode.age)
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: whenMode) { _, _ in
-                    selectedWhenValue = nil
-                    mutateDraft { $0.setWhen(.notSure) }
-                }
-                Picker(AppCopy.whenHeader, selection: $selectedWhenValue) {
+                Picker(AppCopy.whenHeader, selection: Binding(
+                    get: { selectedWhenValue },
+                    set: { value in
+                        selectedWhenValue = value
+                        mutateDraft {
+                            guard let value else { return $0.setWhen(.notSure) }
+                            $0.setWhen(whenMode == .year ? .year(value) : .age(value))
+                        }
+                    }
+                )) {
                     Text(AppCopy.notSure).tag(Int?.none)
                     if whenMode == .year {
                         ForEach(Array(stride(from: Calendar.current.component(.year, from: Date()), through: 1900, by: -1)), id: \.self) { year in
@@ -202,15 +229,9 @@ struct ConfirmView: View {
                     }
                 }
                 .pickerStyle(.wheel)
-                .onChange(of: selectedWhenValue) { _, value in
-                    guard let value else {
-                        mutateDraft { $0.setWhen(.notSure) }
-                        return
-                    }
-                    mutateDraft {
-                        $0.setWhen(whenMode == .year ? .year(value) : .age(value))
-                    }
-                }
+                // A wheel whose rows are swapped in place (years <-> ages) can keep stale
+                // UIPickerView state, so it is rebuilt on each mode change.
+                .id(whenMode)
                 Button(AppCopy.notSure) {
                     selectedWhenValue = nil
                     mutateDraft { $0.setWhen(.notSure) }
