@@ -9,10 +9,21 @@ import UIKit
 
 /// Debug and TestFlight builds only. The App Store build carries the code but never shows the row.
 enum ListenSelfTestGate {
+    /// Synchronous TestFlight check (Perry on 19.1, 2026-11-13: no self-test row). A TestFlight
+    /// install carries a sandbox receipt; the App Store one does not.
+    static var isTestFlightReceipt: Bool {
+        #if DEBUG
+        return true
+        #else
+        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+        #endif
+    }
+
     static func isAllowed() async -> Bool {
         #if DEBUG
         return true
         #else
+        if isTestFlightReceipt { return true }
         guard let result = try? await AppTransaction.shared else { return false }
         switch result {
         case .verified(let transaction), .unverified(let transaction, _):
@@ -29,7 +40,9 @@ enum ListenSelfTestGate {
 
 /// The Settings row; renders nothing unless the gate allows it.
 struct ListenSelfTestRow: View {
-    @State private var allowed = false
+    // Starts from the synchronous receipt check: an empty Group in a Form never appears, so a
+    // `.task` on it never ran and the row stayed hidden on TestFlight 19.1.
+    @State private var allowed = ListenSelfTestGate.isTestFlightReceipt
 
     var body: some View {
         Group {
