@@ -132,6 +132,29 @@ final class FlowTests: XCTestCase {
         attach(app, named: "check-filed-pill")
     }
 
+    /// Perry 2026-11-12: File it without a title must not look dead. It stays tappable, keeps the
+    /// sheet open, and puts the cursor in the title field; the hint says only a title is needed.
+    func testFileWithoutTitleFocusesTitle() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-RetoldDemo"]
+        app.launch()
+
+        let unfiled = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Grandpa Joe taught me")).firstMatch
+        XCTAssertTrue(unfiled.waitForExistence(timeout: 10), "Unfiled demo row missing")
+        unfiled.tap()
+        let fileButton = app.buttons["File it"].firstMatch
+        XCTAssertTrue(fileButton.waitForExistence(timeout: 15), "No File it button")
+        XCTAssertTrue(fileButton.isEnabled, "File it is greyed out without a title")
+        fileButton.tap()
+        let titleField = app.textFields["Type a title"].firstMatch
+        XCTAssertTrue(titleField.waitForExistence(timeout: 5), "Title field missing")
+        XCTAssertTrue(fileButton.exists, "Sheet closed without a title")
+        XCTAssertTrue(titleField.value(forKey: "hasKeyboardFocus") as? Bool ?? false,
+                      "File it without a title did not focus the title field")
+        attach(app, named: "check-file-needs-title")
+    }
+
     /// Dark mode (comeup run 3): Home, the recorder and a story page in the dark palette, so the
     /// accent, OnAccent and card colours are seen in both appearances. `-RetoldDark` is DEBUG only.
     func testDarkModeMainScreens() {
