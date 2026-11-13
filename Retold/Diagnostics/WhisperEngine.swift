@@ -56,6 +56,28 @@ enum WhisperModelStore {
         return total / 1_048_576
     }
 
+    /// The folder of a completed download, if its marker and folder both exist. The marker is
+    /// written only after WhisperKit.download returns, so a half-finished download is not used.
+    static func downloadedFolder(for spec: WhisperModelSpec) -> URL? {
+        // The marker holds the path relative to the store: the app container can move on update.
+        guard let directory, let marker = marker(for: spec),
+              let relative = try? String(contentsOf: marker, encoding: .utf8) else { return nil }
+        let folder = directory.appendingPathComponent(relative, isDirectory: true)
+        return FileManager.default.fileExists(atPath: folder.path) ? folder : nil
+    }
+
+    static func recordDownload(of spec: WhisperModelSpec, at folder: URL) {
+        guard let directory, let marker = marker(for: spec) else { return }
+        let base = directory.standardizedFileURL.resolvingSymlinksInPath().path
+        let full = folder.standardizedFileURL.resolvingSymlinksInPath().path
+        guard full.hasPrefix(base + "/") else { return }     // outside the store: never cached
+        try? String(full.dropFirst(base.count + 1)).write(to: marker, atomically: true, encoding: .utf8)
+    }
+
+    private static func marker(for spec: WhisperModelSpec) -> URL? {
+        directory?.appendingPathComponent(spec.variant + ".downloaded")
+    }
+
     static func deleteAll() {
         guard let directory else { return }
         try? FileManager.default.removeItem(at: directory)
@@ -92,22 +114,31 @@ final class WhisperEngine: HarnessFileEngine, @unchecked Sendable {
 
     func prepare(progress: @escaping @Sendable (String) -> Void) async throws -> (download: Double, load: Double) {
         guard let base = WhisperModelStore.directory else { throw WhisperEngineError.noStorage }
-        // Space for the download plus room to compile the model on first load.
-        let needed = spec.approxMB * 2
-        if let free = WhisperModelStore.freeMB, free < needed {
-            throw WhisperEngineError.notEnoughSpace(neededMB: needed, freeMB: free)
-        }
         let name = spec.name
-        let downloadStart = Date()
-        let lastTenth = LockedInt()
-        let folder = try await WhisperKit.download(variant: spec.variant, downloadBase: base,
-                                                   progressCallback: { fraction in
-            let tenth = Int(fraction.fractionCompleted * 10)
-            if lastTenth.advance(to: tenth) {
-                progress("\(name): download \(tenth * 10)%")
+        var download = 0.0
+        let folder: URL
+        if let cached = WhisperModelStore.downloadedFolder(for: spec) {
+            // Already downloaded (Sol review of PR #37): load it with no network and no space check.
+            progress("\(name): using the model already on this phone")
+            folder = cached
+        } else {
+            // Space for the download plus room to compile the model on first load.
+            let needed = spec.approxMB * 2
+            if let free = WhisperModelStore.freeMB, free < needed {
+                throw WhisperEngineError.notEnoughSpace(neededMB: needed, freeMB: free)
             }
-        })
-        let download = Date().timeIntervalSince(downloadStart)
+            let downloadStart = Date()
+            let lastTenth = LockedInt()
+            folder = try await WhisperKit.download(variant: spec.variant, downloadBase: base,
+                                                   progressCallback: { fraction in
+                let tenth = Int(fraction.fractionCompleted * 10)
+                if lastTenth.advance(to: tenth) {
+                    progress("\(name): download \(tenth * 10)%")
+                }
+            })
+            download = Date().timeIntervalSince(downloadStart)
+            WhisperModelStore.recordDownload(of: spec, at: folder)
+        }
         progress("\(name): loading the model (the first load compiles it, which can take a few minutes)")
         let loadStart = Date()
         let config = WhisperKitConfig(model: spec.variant, downloadBase: base, modelFolder: folder.path,

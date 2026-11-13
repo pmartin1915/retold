@@ -57,8 +57,17 @@ enum CaptureStatsLog {
         return (try? decoder.decode([CaptureStats].self, from: data)) ?? []
     }
 
-    /// Appends one record and keeps the newest `keep`. Best effort: diagnostics never fail a capture.
+    /// One serial background queue for the log file, so saving never delays the end of a capture
+    /// (Sol review of PR #37: the write ran inside stop(), before engineStopped).
+    private static let queue = DispatchQueue(label: "dev.pmartin1915.retold.capture-stats", qos: .utility)
+
+    /// Appends one record and keeps the newest `keep`, on the background queue. Best effort:
+    /// diagnostics never fail or delay a capture.
     static func append(_ stats: CaptureStats) {
+        queue.async { appendNow(stats) }
+    }
+
+    private static func appendNow(_ stats: CaptureStats) {
         guard let url else { return }
         fileLock.withLock { _ in
             var all = load()

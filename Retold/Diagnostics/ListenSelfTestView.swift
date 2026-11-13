@@ -62,94 +62,23 @@ struct ListenSelfTestRow: View {
     }
 }
 
-struct ListenSelfTestView: View {
-    @State private var running = false
-    @State private var lines: [String] = []
-    @State private var reportURL: URL?
-    @State private var statsCount = 0
-    @State private var includeWhisper = true
-    @State private var whisperOnDiskMB = 0
-    @State private var freeMB: Int?
+/// Owns the one self-test run (Sol review of PR #37: a run started from a view could outlive it, and
+/// reopening the screen allowed a second, overlapping run). The run survives leaving the screen, the
+/// screen shows its state when reopened, and the screen stays awake until the run ends.
+@MainActor @Observable
+final class ListenSelfTestRunner {
+    static let shared = ListenSelfTestRunner()
 
-    var body: some View {
-        Form {
-            Section {
-                Text("Runs each test recording through the live transcriber and the saved-audio pass, with each setting being compared. It takes about 15 minutes. Keep the app open; the screen stays on.")
-                    .font(.footnote)
-                Toggle("Also try Whisper", isOn: $includeWhisper)
-                    .disabled(running)
-                Text(whisperNote)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Button(running ? "Running…" : "Run self-test") {
-                    start()
-                }
-                .disabled(running)
-                if let reportURL {
-                    ShareLink(item: reportURL) {
-                        Text("Share report")
-                    }
-                }
-            }
-            if whisperOnDiskMB > 0 {
-                Section {
-                    Button("Delete Whisper models (\(whisperOnDiskMB) MB)", role: .destructive) {
-                        WhisperModelStore.deleteAll()
-                        refreshStorage()
-                    }
-                    .disabled(running)
-                }
-            }
-            Section {
-                if statsCount > 0, let url = CaptureStatsLog.url {
-                    ShareLink(item: url) {
-                        Text("Share capture stats (\(statsCount) recordings)")
-                    }
-                } else {
-                    Text("No capture stats yet. Record a story on this build, then come back.")
-                        .font(.footnote)
-                }
-            } footer: {
-                Text("Counts and timings for your recent recordings on this build: no words, no audio.")
-            }
-            if !lines.isEmpty {
-                Section("Progress") {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.caption.monospaced())
-                    }
-                }
-            }
-        }
-        .navigationTitle("Listening self-test")
-        .onAppear {
-            statsCount = CaptureStatsLog.load().count
-            refreshStorage()
-        }
-        .onDisappear {
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
-    }
+    private(set) var running = false
+    private(set) var lines: [String] = []
+    private(set) var reportURL: URL?
 
-    private var whisperNote: String {
-        let free = freeMB.map { ", \($0) MB free" } ?? ""
-        if whisperOnDiskMB > 0 {
-            return "Whisper models already on this phone (\(whisperOnDiskMB) MB\(free)). Adds about 10 minutes."
-        }
-        return "Downloads about \(WhisperModelSpec.totalMB) MB of Whisper models once, over the network (models only: no audio or words leave the phone)\(free). Adds about 10 minutes."
-    }
-
-    private func refreshStorage() {
-        whisperOnDiskMB = WhisperModelStore.downloadedMB
-        freeMB = WhisperModelStore.freeMB
-    }
-
-    private func append(_ line: String) {
+    func append(_ line: String) {
         lines.append(line)
         if lines.count > 200 { lines.removeFirst(lines.count - 200) }
     }
 
-    private func start() {
+    func start(includeWhisper: Bool) {
         guard !running else { return }
         guard let directory = ListenSelfTestGate.fixturesDirectory else {
             append("No test recordings in this build.")
@@ -165,15 +94,16 @@ struct ListenSelfTestView: View {
         lines = []
         append("\(fixtures.count) recordings, \(ListenHarness.tunings.map(\.name).joined(separator: ", "))")
         UIApplication.shared.isIdleTimerDisabled = true
+        // A fresh work directory per run, so nothing can collide with an earlier run's leftovers.
         let work = FileManager.default.temporaryDirectory
-            .appendingPathComponent("listen-self-test", isDirectory: true)
+            .appendingPathComponent("listen-self-test-\(UUID().uuidString)", isDirectory: true)
         let engines: [any HarnessFileEngine] = includeWhisper
             ? WhisperModelSpec.candidates.map { WhisperEngine(spec: $0) } : []
         Task { @MainActor in
             let report = await ListenHarness.runAll(
                 fixtures: fixtures, host: "iPhone", workDirectory: work, engines: engines,
                 progress: { line in
-                    Task { @MainActor in append(line) }
+                    Task { @MainActor in ListenSelfTestRunner.shared.append(line) }
                 })
             let stamp = ISO8601DateFormatter().string(from: Date())
                 .replacingOccurrences(of: ":", with: "-")
@@ -187,9 +117,89 @@ struct ListenSelfTestView: View {
                 append("Could not write the report: \(error.localizedDescription)")
             }
             try? FileManager.default.removeItem(at: work)
-            refreshStorage()
             UIApplication.shared.isIdleTimerDisabled = false
             running = false
         }
+    }
+}
+
+struct ListenSelfTestView: View {
+    private let runner = ListenSelfTestRunner.shared
+    @State private var statsCount = 0
+    @State private var includeWhisper = true
+    @State private var whisperOnDiskMB = 0
+    @State private var freeMB: Int?
+
+    var body: some View {
+        Form {
+            Section {
+                Text("Runs each test recording through the live transcriber and the saved-audio pass, with each setting being compared. It takes about 15 minutes. Keep the app open; the screen stays on.")
+                    .font(.footnote)
+                Toggle("Also try Whisper", isOn: $includeWhisper)
+                    .disabled(runner.running)
+                Text(whisperNote)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button(runner.running ? "Running…" : "Run self-test") {
+                    runner.start(includeWhisper: includeWhisper)
+                }
+                .disabled(runner.running)
+                if let reportURL = runner.reportURL {
+                    ShareLink(item: reportURL) {
+                        Text("Share report")
+                    }
+                }
+            }
+            if whisperOnDiskMB > 0 {
+                Section {
+                    Button("Delete Whisper models (\(whisperOnDiskMB) MB)", role: .destructive) {
+                        WhisperModelStore.deleteAll()
+                        refreshStorage()
+                    }
+                    .disabled(runner.running)
+                }
+            }
+            Section {
+                if statsCount > 0, let url = CaptureStatsLog.url {
+                    ShareLink(item: url) {
+                        Text("Share capture stats (\(statsCount) recordings)")
+                    }
+                } else {
+                    Text("No capture stats yet. Record a story on this build, then come back.")
+                        .font(.footnote)
+                }
+            } footer: {
+                Text("Counts and timings for your recent recordings on this build: no words, no audio.")
+            }
+            if !runner.lines.isEmpty {
+                Section("Progress") {
+                    ForEach(Array(runner.lines.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(.caption.monospaced())
+                    }
+                }
+            }
+        }
+        .navigationTitle("Listening self-test")
+        .onAppear {
+            statsCount = CaptureStatsLog.load().count
+            refreshStorage()
+        }
+        .onChange(of: runner.running) { _, isRunning in
+            if !isRunning { refreshStorage() }
+        }
+    }
+
+    private var whisperNote: String {
+        let free = freeMB.map { ", \($0) MB free" } ?? ""
+        if whisperOnDiskMB > 0 {
+            return "Whisper models already on this phone (\(whisperOnDiskMB) MB\(free)). Adds about 10 minutes."
+        }
+        return "Downloads about \(WhisperModelSpec.totalMB) MB of Whisper models once, over the network (models only: no audio or words leave the phone)\(free). Adds about 10 minutes."
+    }
+
+    private func refreshStorage() {
+        whisperOnDiskMB = WhisperModelStore.downloadedMB
+        freeMB = WhisperModelStore.freeMB
     }
 }
