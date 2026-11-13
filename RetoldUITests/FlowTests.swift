@@ -183,8 +183,14 @@ final class FlowTests: XCTestCase {
         app.buttons["File it"].firstMatch.tap()
         let filedAge = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", "Age 12")).firstMatch
-        XCTAssertTrue(filedAge.waitForExistence(timeout: 8), "Home row does not show the filed age")
+        // Home's list is lazy and the new story may land below the fold: scroll until it appears.
+        _ = filedAge.waitForExistence(timeout: 4)
+        for _ in 0..<8 where !filedAge.exists {
+            app.swipeUp()
+            _ = filedAge.waitForExistence(timeout: 1)
+        }
         attach(app, named: "check-age-filed")
+        XCTAssertTrue(filedAge.exists, "Home row does not show the filed age")
     }
 
     /// Dark mode (comeup run 3): Home, the recorder and a story page in the dark palette, so the
