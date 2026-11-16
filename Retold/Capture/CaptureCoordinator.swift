@@ -520,8 +520,11 @@ final class CaptureCoordinator {
     private func waitForWhisper(_ outcome: OSAllocatedUnfairLock<Result<[TranscriptSegment], Error>?>,
                                 until deadline: ContinuousClock.Instant) async -> WhisperWait {
         while true {
-            if let result = outcome.withLock({ $0 }) { return .finished(result) }
+            // Interruption first (Sol review of PR #40): a recording start cancels the pass, and the
+            // CancellationError it then publishes must not read as a finished pass that keeps Apple's.
+            // The reducer enters .starting synchronously, before the start effect cancels anything.
             if activeCaptureID != nil || !state.protectedDataAvailable { return .interrupted }
+            if let result = outcome.withLock({ $0 }) { return .finished(result) }
             if ContinuousClock.now >= deadline { return .timedOut }
             try? await Task.sleep(for: .milliseconds(50))
         }
