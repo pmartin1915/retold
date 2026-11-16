@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import SwiftData
 
 // Owns the recorder loop: reduces engine events through RecorderMachine, runs journal effects
@@ -48,6 +49,7 @@ final class CaptureCoordinator {
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let newID: () -> UUID
     @ObservationIgnored private let lengthLimits: CaptureLengthLimits
+    @ObservationIgnored private let whisperTimeLimit: @Sendable (TimeInterval) -> TimeInterval
 
     @ObservationIgnored private var effectQueue: [RecorderEffect] = []
     @ObservationIgnored private var isDraining = false
@@ -74,7 +76,8 @@ final class CaptureCoordinator {
          makeWriter: @escaping (CaptureFiles, UUID) throws -> any JournalAppending,
          now: @escaping () -> Date = Date.init,
          newID: @escaping () -> UUID = UUID.init,
-         lengthLimits: CaptureLengthLimits = .standard) {
+         lengthLimits: CaptureLengthLimits = .standard,
+         whisperTimeLimit: @escaping @Sendable (TimeInterval) -> TimeInterval = { WhisperPassLimits.timeLimit(duration: $0) }) {
         self.engine = engine
         self.fileTranscriber = fileTranscriber
         self.routeProvider = routeProvider
@@ -86,6 +89,7 @@ final class CaptureCoordinator {
         self.now = now
         self.newID = newID
         self.lengthLimits = lengthLimits
+        self.whisperTimeLimit = whisperTimeLimit
         self.state = RecorderState(permission: initialPermission,
                                    protectedDataAvailable: protectedDataAvailable)
 
@@ -363,8 +367,20 @@ final class CaptureCoordinator {
         guard state.protectedDataAvailable else { return }
         let scan = ModelContext(container)
         guard let captures = try? scan.fetch(FetchDescriptor<Capture>()) else { return }
+        // Whisper pass spec section 2: marked captures (Apple's live run completed) get the Whisper
+        // pass and never the Apple file pass; everything else is unchanged.
+        let ledger = importer.ledger
+        let waiting = captures.filter { $0.transcriptionStatus == .live && ledger?.isMarked($0.id) == true }
+        ledger?.prune(keeping: Set(waiting.map(\.id)))
+        let marked = waiting.map { (id: $0.id, duration: $0.duration) }
+        let markedIDs = Set(marked.map(\.id))
+        for item in marked {
+            guard state.protectedDataAvailable else { return }
+            await performWhisperPass(captureID: item.id, duration: item.duration)
+        }
         let candidateIDs = captures
             .filter { [TranscriptionStatus.live, .pending, .fromFile].contains($0.transcriptionStatus) }
+            .filter { !markedIDs.contains($0.id) }
             .filter { $0.id != activeCaptureID }
             .filter { $0.corrections.isEmpty }               // correction indices point at current segments
             .filter { FileManager.default.fileExists(atPath: files.audioURL(for: $0.id).path) }
@@ -418,6 +434,116 @@ final class CaptureCoordinator {
             try context.save()
         } catch {
             context.rollback()
+        }
+    }
+
+    // MARK: - Whisper pass (docs/WHISPER-PASS-SPEC.md)
+
+    private enum WhisperWait {
+        case finished(Result<[TranscriptSegment], Error>)
+        case interrupted     // a capture started or the phone locked: leave it marked
+        case timedOut
+    }
+
+    /// One marked capture: decides the fallbacks that need no model, then runs Whisper bounded by
+    /// time, the active-capture rule and the lock, and writes the outcome (spec section 3).
+    private func performWhisperPass(captureID: UUID, duration: TimeInterval) async {
+        guard let ledger = importer.ledger else { return }
+        guard let pass = importer.afterStopPass, pass.isReady(),
+              ledger.attempts(captureID) < WhisperPassLimits.attemptCap,
+              !Self.hasCorrections(captureID, in: container),
+              (pass.availableMemoryMB() ?? Int.max) >= WhisperPassLimits.requiredMemoryMB
+        else {
+            Self.applyWhisperPassResult(captureID: captureID, whisper: nil, ledger: ledger, in: container)
+            return
+        }
+        // Never load 674 MB beside a live recording; the import at its Stop kicks the pass again.
+        guard activeCaptureID == nil else { return }
+
+        ledger.beginAttempt(captureID)
+        let audioURL = files.audioURL(for: captureID)
+        let outcome = OSAllocatedUnfairLock<Result<[TranscriptSegment], Error>?>(initialState: nil)
+        let task = Task.detached {
+            let result: Result<[TranscriptSegment], Error>
+            do {
+                result = .success(try await pass.transcribe(audioURL: audioURL))
+            } catch {
+                result = .failure(error)
+            }
+            outcome.withLock { $0 = result }
+        }
+
+        let deadline = ContinuousClock.now + .seconds(whisperTimeLimit(duration))
+        switch await waitForWhisper(outcome, until: deadline) {
+        case .finished(let result):
+            guard state.protectedDataAvailable else {
+                ledger.giveBack(captureID)
+                return
+            }
+            Self.applyWhisperPassResult(captureID: captureID, whisper: try? result.get(),
+                                        ledger: ledger, in: container)
+        case .interrupted:
+            task.cancel()
+            ledger.giveBack(captureID)
+            await task.value      // the pass unloads the model on cancellation
+        case .timedOut:
+            task.cancel()
+            if state.protectedDataAvailable {
+                Self.applyWhisperPassResult(captureID: captureID, whisper: nil, ledger: ledger, in: container)
+            } else {
+                ledger.giveBack(captureID)
+            }
+            await task.value      // never two models resident: wait for the unload
+        }
+    }
+
+    /// Polls the running pass every 50 ms: its result, a capture starting, the lock, the deadline.
+    private func waitForWhisper(_ outcome: OSAllocatedUnfairLock<Result<[TranscriptSegment], Error>?>,
+                                until deadline: ContinuousClock.Instant) async -> WhisperWait {
+        while true {
+            if let result = outcome.withLock({ $0 }) { return .finished(result) }
+            if activeCaptureID != nil || !state.protectedDataAvailable { return .interrupted }
+            if ContinuousClock.now >= deadline { return .timedOut }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    private static func hasCorrections(_ captureID: UUID, in container: ModelContainer) -> Bool {
+        let wantedID = captureID
+        var descriptor = FetchDescriptor<Capture>(predicate: #Predicate { $0.id == wantedID })
+        descriptor.fetchLimit = 1
+        let capture = (try? ModelContext(container).fetch(descriptor))?.first
+        return !(capture?.corrections.isEmpty ?? true)
+    }
+
+    /// Completes a marked capture: with Whisper's words when `whisper` is accepted and the capture has
+    /// no corrections, otherwise with Apple's (never .failed: Apple's run completed). Fresh context,
+    /// no suspension between fetch and save (as applyFilePassResult). Does nothing to a capture that
+    /// is no longer .live. The marker goes once the capture is complete or gone.
+    static func applyWhisperPassResult(captureID: UUID, whisper: [TranscriptSegment]?,
+                                       ledger: WhisperPassLedger, in container: ModelContainer) {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        let wantedID = captureID
+        var descriptor = FetchDescriptor<Capture>(predicate: #Predicate { $0.id == wantedID })
+        descriptor.fetchLimit = 1
+        guard let capture = (try? context.fetch(descriptor))?.first,
+              capture.transcriptionStatus == .live
+        else {
+            ledger.remove(captureID)
+            return
+        }
+        let apple = capture.transcript
+        var kept = apple
+        if let whisper, capture.corrections.isEmpty, WhisperPassLimits.accepts(whisper: whisper, apple: apple) {
+            kept = whisper
+        }
+        do {
+            try capture.completeTranscript(kept)
+            try context.save()
+            ledger.remove(captureID)
+        } catch {
+            context.rollback()       // stays marked; the attempt cap ends a repeat
         }
     }
 }

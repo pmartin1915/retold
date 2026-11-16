@@ -28,7 +28,9 @@ enum LiveCapture {
         let protector = FileManagerProtector()
         protectStore(url: storeURL, protector: protector)
 
-        let importer = JournalImporter(files: files, durationProbe: AVDurationProbe(), protector: protector)
+        // The Whisper pass after Stop (docs/WHISPER-PASS-SPEC.md): runs only once the user downloaded the model.
+        let importer = JournalImporter(files: files, durationProbe: AVDurationProbe(), protector: protector,
+                                       afterStopPass: WhisperAfterStopPass(), ledger: WhisperPassLedger())
         let engine = LiveCaptureEngine()
         let probe = SpeechRouteProbe()
         let coordinator = CaptureCoordinator(

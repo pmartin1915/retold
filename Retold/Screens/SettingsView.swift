@@ -59,6 +59,7 @@ struct SettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                BetterTranscriptsSection()
                 // Debug and TestFlight builds only (listening hardening); renders nothing otherwise.
                 ListenSelfTestRow()
             }

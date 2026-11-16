@@ -10,6 +10,10 @@ struct JournalImporter {
     let files: CaptureFiles
     let durationProbe: any AudioDurationProbe
     let protector: any FileProtector
+    /// The Whisper pass after Stop (docs/WHISPER-PASS-SPEC.md). Both nil (the default): every
+    /// completed live run is completed as today.
+    var afterStopPass: (any AfterStopPass)? = nil
+    var ledger: WhisperPassLedger? = nil
 
     struct Report: Equatable {
         var imported: [UUID] = []          // Capture created from a journal
@@ -122,9 +126,17 @@ struct JournalImporter {
             && startedRuns.isSubset(of: completedRuns)
 
         switch route {
-        case .some(.speech) where completed && hasEnd,
-             .some(.dictation) where completed && hasEnd:
-            try capture.completeTranscript(segments)                 // -> .complete
+        case .some(.speech(let localeID)) where completed && hasEnd,
+             .some(.dictation(let localeID)) where completed && hasEnd:
+            if let afterStopPass, let ledger, WhisperPassLimits.isEnglish(localeID: localeID),
+               afterStopPass.isReady() {
+                // Whisper pass spec section 2: Apple's words wait, not frozen, for the Whisper pass,
+                // which completes the capture with Whisper's words or with these.
+                ledger.mark(capture.id)
+                try capture.updateTranscript(segments, status: .live)
+            } else {
+                try capture.completeTranscript(segments)             // -> .complete
+            }
         case .some(.audioOnly):
             try capture.updateTranscript([], status: .live)          // queued for the file pass
         default:

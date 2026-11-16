@@ -54,6 +54,30 @@ enum AppCopy {
     static let startupFailedTitle = "Retold could not start"
     static let startupFailed = "Retold could not open its storage. Try again, or restart the app."
     static let tryAgain = "Try again"
+    /// Whisper pass (1.1.0): the one-time offer and the Settings row's title.
+    static let betterTranscriptsTitle = "Better transcripts"
+    /// The one-time offer's message.
+    static let betterTranscriptsOffer = "Download a 632 MB speech model that hears names and words more accurately. It writes your transcript on this iPhone after you stop. It downloads on Wi-Fi only."
+    /// The offer's accept button.
+    static let downloadOnWiFi = "Download on Wi-Fi"
+    /// The offer's decline button.
+    static let notNow = "Not now"
+    /// Settings row: the model is not on the phone.
+    static let whisperDownloadButton = "Download (632 MB, Wi-Fi)"
+    /// Settings row: asked for, no Wi-Fi yet.
+    static let whisperWaitingForWiFi = "Waiting for Wi-Fi. Keep Retold open on Wi-Fi to download."
+    /// Settings row: download progress.
+    static func whisperDownloading(_ percent: Int) -> String { "Downloading, \(percent)%" }
+    /// Settings row: the first load after the download.
+    static let whisperPreparing = "Getting the model ready. This can take a few minutes."
+    /// Settings row: the model is on the phone.
+    static func whisperReady(_ megabytes: Int) -> String { "On this iPhone (\(megabytes) MB)" }
+    /// Settings row: remove the model.
+    static let whisperDelete = "Delete the model"
+    /// Settings row: the download or preparation failed; the detail follows.
+    static let whisperFailed = "The download did not finish. "
+    /// Settings footnote.
+    static let whisperFootnote = "With the model, Retold writes the transcript you keep after you stop. Without it, Retold keeps the live transcript. Recordings never leave this iPhone."
     /// R6b: home screen title (the week-0 scaffold's, moved here so views carry no literals).
     static let homeTitle = "Retold"
     static let filedLabel = "Filed"
@@ -375,5 +399,17 @@ enum AppCopy {
         deleteFailed,
         startupFailedTitle,
         tryAgain,
+        betterTranscriptsTitle,
+        betterTranscriptsOffer,
+        downloadOnWiFi,
+        notNow,
+        whisperDownloadButton,
+        whisperWaitingForWiFi,
+        whisperDownloading(40),
+        whisperPreparing,
+        whisperReady(640),
+        whisperDelete,
+        whisperFailed,
+        whisperFootnote,
     ]
 }
