@@ -1,14 +1,16 @@
 # STATE: retold (NOW)
 
-**Updated 2026-11-13.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
+**Updated 2026-11-16.** Keep this to one screen. Update it in the same commit as any change of state, and replace lines rather than appending dated entries. Older state is in `ai/archive/STATE-through-2026-10-04.md`; handoffs older than two weeks are in `ai/archive/` (none in `ai/`; this repo keeps handoffs in `docs/`, newest `docs/HANDOFF-2026-10-04-r7b-merged-device-sitting-next.md`).
 
 ## Critical path
+**2026-11-16 (Perry): engine decided from the phone self-test (21.1; numbers in PR #37 comment 6924576219).** Apple 4.5% WER with names wrong on every tuning; Apple `fast` cuts first-final 11.7 s -> 5.0 s and p90 lag 5.0 -> 1.1 s; Whisper turbo 1.2% with names right, 4 s per audio min, 674 MB peak. 1.1.0 = Apple `fast` live text + a Whisper turbo pass over the saved audio after Stop that produces the kept transcript before any user edit (Rule 1). Whisper is OFFERED, not forced: one-time prompt 'Better transcripts (632 MB, Wi-Fi)'; until it is downloaded Apple's transcript is kept. Then Sol review, merge PR #37, build, release-train submit (Perry's go before the submit). Never submit the parked 1.0 (14.1).
+
 **2026-11-12 (Perry): listening hardening first, then ship 1.1.0 to the App Store.** Lane `retold-listen` (worktree `../retold-listen`, branch `listen/hardening`, brief dev-ops `boss/2026-11-12/retold-listen.md`) diagnoses the three device symptoms, builds a CI transcription harness (fixtures -> WER, dropped stretches, latency), fixes, gets Sol review, and reports to the boss; the boss merges, uploads, and submits once Perry confirms. Before that: **PARKED 2026-11-10 (Perry): 1.0 will not be filed.** He could not file it, and on device the transcription misheard words, dropped chunks of speech, and lagged. Next step is a redesign + transcription-quality lane, started once the other ship-wave apps (Tellfolk, BoardBound, Burn Wizard) are uploaded and done. ASC 1.0 (build 14.1) stays READY_FOR_REVIEW and unsubmitted; 1.1.0 build 15.1 is on TestFlight. The engine is already iOS 26 `SpeechTranscriber` (`Retold/Capture/Device/SpeechModules.swift`), so the lane tunes it (file re-pass over saved audio, custom vocabulary via the analysis context, the 1.1 corrections UI from IDEAS 2026-10-04) rather than swapping engines.
 
 1.1 work on main: comeup run 2 (#26-#31, 2026-11-09) and run 3 (#33, #35, 2026-11-11: recorder capsule + record ring, cheap live text, serif for the user's words, story/confirm/Home redesign, dark-mode CI capture). **1.1.0 build 16.1 (deploy run 16, main `bc11052`) uploaded to TestFlight 2026-11-11**; no submission. Scorecards: `ai/comeup/2026-11-09/`, `ai/comeup/2026-11-10/`.
 
 ## Waiting on Perry
-- Nothing to run yet. The next TestFlight build (from `listen/hardening` with Whisper added, plus #38 and #39) carries the Listening self-test comparing Apple's engine with on-device Whisper; Claude uploads it when the lane reports, then Perry runs Settings > Listening self-test and shares the results. (Claude-set 2026-11-12, re-check 2026-11-15)
+- Nothing now. Next ask: the final go before the 1.1.0 submit.
 
 ## Hard dates
 - 2026-10-16: StoryCue submit (frees Perry's device time).
