@@ -127,6 +127,8 @@ struct ListenTuning: Codable, Equatable, Sendable {
                                      flushConverter: true, useContext: true)
     static let fast = ListenTuning(name: "fast", fastResults: true, prepareModel: true,
                                    flushConverter: true, useContext: true)
-    /// What the capture engine and the file pass use.
-    static let shipping = current
+    /// What the capture engine and the file pass use. `fast` since 1.1.0 (Perry, 2026-11-16, from the
+    /// 21.1 self-test: first final 11.7 s -> 5.0 s, p90 lag 5.0 -> 1.1 s). The engine passes no
+    /// contextual strings, so `useContext` has nothing to add yet (docs/WHISPER-PASS-SPEC.md section 1).
+    static let shipping = fast
 }

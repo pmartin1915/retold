@@ -153,10 +153,15 @@ struct ListenSelfTestView: View {
             if whisperOnDiskMB > 0 {
                 Section {
                     Button("Delete Whisper models (\(whisperOnDiskMB) MB)", role: .destructive) {
-                        WhisperModelStore.deleteAll()
-                        refreshStorage()
+                        Task {
+                            // The same store as Settings > Better transcripts: this deletes the app's model too.
+                            await WhisperModelManager.shared.delete(waitingFor: nil)
+                            refreshStorage()
+                        }
                     }
                     .disabled(runner.running)
+                } footer: {
+                    Text("Also deletes the model Settings > Better transcripts downloaded.")
                 }
             }
             Section {

@@ -29,6 +29,9 @@ struct HomeView: View {
     /// The title just filed, held until the confirm sheet has closed (comeup run 3, C7).
     @State private var pendingFiledTitle: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Whisper pass (docs/WHISPER-PASS-SPEC.md section 5): the one-time offer of the model.
+    @AppStorage("retold.whisper.offered") private var whisperOffered = false
+    @State private var showingWhisperOffer = false
 
     private var sections: [TimelineSection] {
         Timeline.sections(
@@ -177,6 +180,15 @@ struct HomeView: View {
         } message: {
             Text(AppCopy.startFailedMessage + (coordinator.startFailure ?? ""))
         }
+        .alert(AppCopy.betterTranscriptsTitle, isPresented: $showingWhisperOffer) {
+            Button(AppCopy.downloadOnWiFi) { WhisperModelManager.shared.requestDownload() }
+            Button(AppCopy.notNow, role: .cancel) {}
+        } message: {
+            Text(AppCopy.betterTranscriptsOffer)
+        }
+        .onChange(of: selectedCapture) { _, newValue in
+            if newValue == nil { considerWhisperOffer() }
+        }
         .alert(AppCopy.micBlockedTitle, isPresented: $micBlocked) {
             Button(AppCopy.openSettings) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -194,6 +206,7 @@ struct HomeView: View {
             try? DefaultPeriods.seedIfNeeded(modelContext, defaults: .standard)
             _ = try? AnswerAttacher.attachPending(in: modelContext)
             handleAutoPresent()
+            considerWhisperOffer()
         }
         .onChange(of: autoPresentID) { _, _ in
             handleAutoPresent()
@@ -306,6 +319,20 @@ struct HomeView: View {
     private func present(_ capture: Capture) {
         selectedAnsweredPeriodID = AnswerAttacher.answeredPeriodID(for: capture, in: modelContext)
         selectedCapture = capture
+    }
+
+    /// Once, after the first recording exists and no sheet is up; never in the screenshot demo, and
+    /// not when the model is already here or asked for.
+    private func considerWhisperOffer() {
+        #if DEBUG
+        if DemoMode.isActive { return }
+        #endif
+        guard !whisperOffered, selectedCapture == nil, !showingSettings,
+              !(unfiledCaptures.isEmpty && episodes.isEmpty),
+              WhisperModelManager.shared.state == .absent
+        else { return }
+        whisperOffered = true
+        showingWhisperOffer = true
     }
 
     private func handleAutoPresent() {

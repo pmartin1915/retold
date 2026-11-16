@@ -28,7 +28,9 @@ enum LiveCapture {
         let protector = FileManagerProtector()
         protectStore(url: storeURL, protector: protector)
 
-        let importer = JournalImporter(files: files, durationProbe: AVDurationProbe(), protector: protector)
+        // The Whisper pass after Stop (docs/WHISPER-PASS-SPEC.md): runs only once the user downloaded the model.
+        let importer = JournalImporter(files: files, durationProbe: AVDurationProbe(), protector: protector,
+                                       afterStopPass: WhisperAfterStopPass(), ledger: WhisperPassLedger())
         let engine = LiveCaptureEngine()
         let probe = SpeechRouteProbe()
         let coordinator = CaptureCoordinator(
@@ -43,6 +45,9 @@ enum LiveCapture {
             makeWriter: { files, captureID in
                 try JournalWriter(files: files, captureID: captureID, protector: protector)
             })
+        // Starts the Wi-Fi watch now, so a download asked for before a relaunch resumes without
+        // Settings being opened (Sol review of PR #40).
+        _ = WhisperModelManager.shared
         return LiveCaptureServices(
             coordinator: coordinator,
             engine: engine,
