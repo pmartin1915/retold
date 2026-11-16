@@ -188,6 +188,8 @@ private struct RootView: View {
         .task {
             // The export zip holds the whole library unencrypted in tmp: clear any leftover.
             ExportArchiver.sweep(workDirectory: ExportArchiver.defaultWorkDirectory)
+            // Capture stats are recorded on Debug and TestFlight builds only (listening hardening).
+            Task.detached { CaptureStatsLog.setEnabled(await ListenSelfTestGate.isAllowed()) }
             await coordinator.run()
         }
         .onChange(of: coordinator.state.phase) { oldPhase, newPhase in

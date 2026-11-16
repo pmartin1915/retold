@@ -1,0 +1,6 @@
+# name	script	voices (first one present on the runner wins)	rate (words per minute)
+names-places-a	names-places	Samantha,Alex,Ava	175
+names-places-b	names-places	Daniel,Karen,Moira,Fred	160
+pauses	pauses	Samantha,Alex,Ava	170
+runon-fast	runon	Samantha,Alex,Ava	230
+plain	plain	Daniel,Karen,Moira,Fred	165

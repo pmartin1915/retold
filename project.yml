@@ -6,6 +6,13 @@ options:
     iOS: "26.0"
   createIntermediateGroups: true
 
+packages:
+  # Whisper on the phone for the Listening self-test only (2026-11-12, Perry's pick). MIT.
+  # The repository is argmaxinc/argmax-oss-swift (formerly WhisperKit). Exact version, never a range.
+  WhisperKit:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    exactVersion: 1.1.1
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -13,6 +20,10 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     ALWAYS_SEARCH_USER_PATHS: NO
     DEVELOPMENT_TEAM: NN8F5WX25R
+    # Simulator builds are arm64 only (Apple-silicon runners). With a Swift package (WhisperKit) the
+    # app otherwise also built x86_64 while the package built arm64 only, and the x86_64 compile
+    # failed with "Unable to resolve module dependency: 'WhisperKit'" (run 43362025041).
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
   configs:
     Debug:
       ENABLE_TESTABILITY: YES
@@ -27,11 +38,20 @@ targets:
     type: application
     platform: iOS
     sources:
-      - Retold
+      - path: Retold
+        excludes:
+          - "Diagnostics/ListenFixtures"
+      # Listening self-test recordings (harness/make-fixtures.sh), one folder in the bundle.
+      - path: Retold/Diagnostics/ListenFixtures
+        type: folder
+        buildPhase: resources
+        optional: true
     dependencies:
       # The Action-button / Control Center control (R6 spec section 8). Embedded under PlugIns.
       - target: RetoldControls
         embed: true
+      - package: WhisperKit
+        product: WhisperKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.pmartin1915.retold
@@ -113,6 +133,32 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
 
+  RetoldListenHarness:
+    # Transcription harness (listening hardening, 2026-11-12). Its own scheme and workflow
+    # (listen-harness.yml): it runs in real time and needs Speech assets, so it never runs in the
+    # Retold scheme. harness/generated holds the CI-generated fixtures (gitignored, optional).
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - RetoldListenHarness
+      - path: harness/generated
+        type: folder
+        buildPhase: resources
+        optional: true
+    dependencies:
+      - target: Retold
+    settings:
+      base:
+        PRODUCT_NAME: RetoldListenHarness
+        PRODUCT_BUNDLE_IDENTIFIER: dev.pmartin1915.retold.listenharness
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Retold.app/Retold
+        BUNDLE_LOADER: $(TEST_HOST)
+    info:
+      path: RetoldListenHarness/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+
   RetoldUITests:
     # App Store screenshot lane. UI tests live in their own scheme (RetoldScreenshots) so the
     # normal Build & Test lane never runs them.
@@ -154,5 +200,16 @@ schemes:
     test:
       targets:
         - RetoldUITests
+    run:
+      config: Debug
+
+  RetoldListenHarness:
+    build:
+      targets:
+        Retold: all
+        RetoldListenHarness: all
+    test:
+      targets:
+        - RetoldListenHarness
     run:
       config: Debug
