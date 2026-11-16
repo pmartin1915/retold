@@ -141,7 +141,15 @@ final class WhisperEngine: HarnessFileEngine, @unchecked Sendable {
         }
         progress("\(name): loading the model (the first load compiles it, which can take a few minutes)")
         let loadStart = Date()
+        #if targetEnvironment(simulator)
+        // The simulator has no Neural Engine or Metal-backed Core ML: CPU only (the CI harness, 2026-11-15).
+        let compute: ModelComputeOptions? = ModelComputeOptions(melCompute: .cpuOnly, audioEncoderCompute: .cpuOnly,
+                                                               textDecoderCompute: .cpuOnly, prefillCompute: .cpuOnly)
+        #else
+        let compute: ModelComputeOptions? = nil   // WhisperKit's defaults on the phone, unchanged
+        #endif
         let config = WhisperKitConfig(model: spec.variant, downloadBase: base, modelFolder: folder.path,
+                                      computeOptions: compute,
                                       verbose: false, prewarm: true, load: true, download: false)
         pipe = try await WhisperKit(config)
         return (download, Date().timeIntervalSince(loadStart))

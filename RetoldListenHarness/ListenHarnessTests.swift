@@ -16,7 +16,13 @@ final class ListenHarnessTests: XCTestCase {
         let fixtures = HarnessFixture.load(from: directory)
         XCTAssertFalse(fixtures.isEmpty, "no fixtures in \(directory.path)")
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("listen-harness", isDirectory: true)
-        let report = await ListenHarness.runAll(fixtures: fixtures, host: "iOS simulator", workDirectory: work)
+        // Whisper runs here too (2026-11-15): Apple's SpeechTranscriber has no model on the simulator,
+        // but WhisperKit is a bundled Core ML model and does, so CI measures Whisper's accuracy on the
+        // same fixtures. Speed on the simulator is the Mac's CPU, not the phone's: read WER, not timing.
+        let engines: [any HarnessFileEngine] = WhisperModelSpec.candidates.map { WhisperEngine(spec: $0) }
+        let report = await ListenHarness.runAll(fixtures: fixtures, host: "iOS simulator", workDirectory: work,
+                                                engines: engines,
+                                                progress: { line in print("LISTEN_HARNESS: \(line)") })
         let data = ListenHarness.encode(report)
         let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
         attachment.name = "listen-harness.json"
