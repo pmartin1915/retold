@@ -116,6 +116,10 @@ final class WhisperModelManager {
             }
             try Task.checkCancellation()
             state = .preparing
+            // Never load beside a recording (Sol review of PR #40): wait for the capture to end.
+            while WhisperModelGate.captureActive {
+                try await Task.sleep(for: .seconds(1))
+            }
             // The first load compiles the model (minutes); doing it here keeps it off the after-Stop pass.
             let runner = WhisperRunner(spec: spec)
             do {

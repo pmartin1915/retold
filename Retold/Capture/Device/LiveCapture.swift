@@ -45,6 +45,9 @@ enum LiveCapture {
             makeWriter: { files, captureID in
                 try JournalWriter(files: files, captureID: captureID, protector: protector)
             })
+        // Starts the Wi-Fi watch now, so a download asked for before a relaunch resumes without
+        // Settings being opened (Sol review of PR #40).
+        _ = WhisperModelManager.shared
         return LiveCaptureServices(
             coordinator: coordinator,
             engine: engine,

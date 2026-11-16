@@ -353,6 +353,23 @@ final class WhisperPassTests: XCTestCase {
     }
 
     @MainActor
+    func testRecordingStartCancelsRunningPassAndCaptureStaysMarked() async throws {
+        let setup = try makeSetup()
+        setup.pass.hold = true                                   // ends only when cancelled
+        try writeCompletedJournal(setup)
+        importOnly(setup)
+        let passTask = Task { await setup.coordinator.retranscribePending() }
+        while setup.pass.calls == 0 { await Task.yield() }
+        setup.coordinator.send(.startRequested(answering: nil))
+        await setup.coordinator.drainEffects()
+        await passTask.value
+        let capture = try fetch(setup)
+        XCTAssertEqual(capture.transcriptionStatus, .live)       // waits for a later pass
+        XCTAssertTrue(setup.ledger.isMarked(captureID))
+        XCTAssertEqual(setup.ledger.attempts(captureID), 0)      // not a failure
+    }
+
+    @MainActor
     func testRetranscribeFinishesStaleMarkerAndPrunesGoneCaptures() async throws {
         let setup = try makeSetup()
         let gone = UUID()

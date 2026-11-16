@@ -91,6 +91,13 @@ final class WhisperPassLedger: @unchecked Sendable {
     }
 }
 
+/// Is a capture active? Set by the coordinator on every state change; WhisperModelManager waits on it
+/// before the first load after a download, so the model is never loaded beside a recording.
+@MainActor
+enum WhisperModelGate {
+    static var captureActive = false
+}
+
 /// The real pass: Whisper turbo from the store, loaded per capture and unloaded after it.
 struct WhisperAfterStopPass: AfterStopPass {
     let spec = WhisperModelSpec.turbo
@@ -111,6 +118,7 @@ struct WhisperAfterStopPass: AfterStopPass {
         guard let folder = WhisperModelStore.downloadedFolder(for: spec) else {
             throw WhisperEngineError.notDownloaded
         }
+        try Task.checkCancellation()          // a recording started before the load
         let runner = WhisperRunner(spec: spec)
         do {
             _ = try await runner.load(folder: folder)

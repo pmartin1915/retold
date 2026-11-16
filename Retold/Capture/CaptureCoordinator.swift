@@ -50,6 +50,9 @@ final class CaptureCoordinator {
     @ObservationIgnored private let newID: () -> UUID
     @ObservationIgnored private let lengthLimits: CaptureLengthLimits
     @ObservationIgnored private let whisperTimeLimit: @Sendable (TimeInterval) -> TimeInterval
+    /// The running Whisper pass, if any: its task and its result slot (non-nil once it has unloaded).
+    @ObservationIgnored private var runningWhisper: (task: Task<Void, Never>,
+                                                     outcome: OSAllocatedUnfairLock<Result<[TranscriptSegment], Error>?>)?
 
     @ObservationIgnored private var effectQueue: [RecorderEffect] = []
     @ObservationIgnored private var isDraining = false
@@ -155,6 +158,7 @@ final class CaptureCoordinator {
         let oldPhase = state.phase
         let (newState, effects) = RecorderMachine.reduce(state, event, now: now(), newID: newID)
         state = newState
+        WhisperModelGate.captureActive = activeCaptureID != nil
         updateLengthTimer(from: oldPhase)
         processedEventCount += 1
         effectQueue.append(contentsOf: effects)
@@ -230,6 +234,9 @@ final class CaptureCoordinator {
                 outstandingEngineCalls -= 1
                 return
             }
+            // Whisper pass spec section 4: a running pass is cancelled and given a few seconds to
+            // unload before the microphone starts. Audio first: the recording starts regardless.
+            await releaseWhisper(upTo: .seconds(3))
             liveFinalText = ""
             liveVolatileText = ""
             await engine.start(captureID: captureID, audioURL: files.audioURL(for: captureID), route: route)
@@ -474,6 +481,8 @@ final class CaptureCoordinator {
         }
 
         let deadline = ContinuousClock.now + .seconds(whisperTimeLimit(duration))
+        runningWhisper = (task, outcome)
+        defer { runningWhisper = nil }
         switch await waitForWhisper(outcome, until: deadline) {
         case .finished(let result):
             guard state.protectedDataAvailable else {
@@ -494,6 +503,16 @@ final class CaptureCoordinator {
                 ledger.giveBack(captureID)
             }
             await task.value      // never two models resident: wait for the unload
+        }
+    }
+
+    /// Cancels the running Whisper pass and waits until it has unloaded, at most `limit`.
+    private func releaseWhisper(upTo limit: Duration) async {
+        guard let running = runningWhisper else { return }
+        running.task.cancel()
+        let deadline = ContinuousClock.now + limit
+        while running.outcome.withLock({ $0 }) == nil && ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
         }
     }
 
@@ -527,9 +546,9 @@ final class CaptureCoordinator {
         let wantedID = captureID
         var descriptor = FetchDescriptor<Capture>(predicate: #Predicate { $0.id == wantedID })
         descriptor.fetchLimit = 1
-        guard let capture = (try? context.fetch(descriptor))?.first,
-              capture.transcriptionStatus == .live
-        else {
+        // A fetch error is not absence: keep the marker, so the capture never falls to the Apple file pass.
+        guard let fetched = try? context.fetch(descriptor) else { return }
+        guard let capture = fetched.first, capture.transcriptionStatus == .live else {
             ledger.remove(captureID)
             return
         }
