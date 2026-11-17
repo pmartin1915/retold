@@ -1,0 +1,18 @@
+VERSION 1.1.0  id=81636e8b-9f7f-4d7a-8e04-f8fdd89f8dd0  state=WAITING_FOR_REVIEW  releaseType=AFTER_APPROVAL  first_release=True
+
+PASS  releaseType AFTER_APPROVAL (want AFTER_APPROVAL)
+PASS  build 22.1 (id 88fd3adb-c0ab-4aee-aaf2-2866cee373a5) VALID expired=False
+PASS  TestFlight What to Test: 240 chars
+PASS  [en-US] What's New 0 chars (first release: none expected)
+PASS  [en-US] APP_IPHONE_67: 5 shots
+PASS  review contact set: True
+PASS  review notes 2757 chars (truth is checked by hand)
+PASS  review attachment retold-1.1.0-review.mov 1.1 MB COMPLETE
+PASS  age rating socialMedia=False (appInfo 969e5cc7 WAITING_FOR_REVIEW)
+PASS  review submission 38f3853a-af0a-4839-a8b3-27296b614f27 WAITING_FOR_REVIEW items=['READY_FOR_REVIEW version=81636e8b-9f7f-4d7a-8e04-f8fdd89f8dd0']
+
+NOT CHECKED (console only, verify by eye): App Privacy published, Regulated Medical Device declaration, whether the review notes are still TRUE, What's New house voice.
+
+STATE WAITING_FOR_REVIEW: submitted or later.
+
+release check: no FAIL lines.
